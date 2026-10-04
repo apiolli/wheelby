@@ -3,21 +3,26 @@ using Shared.Application;
 using Scalar.AspNetCore;
 using AccessControl.Infrastructure;
 using Notifications.Infrastructure;
-using Notifications.Contracts;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddSharedApplication();  
-builder.Services.AddAccessControl();       
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+
+// DI de cada modulo
+builder.Services.AddAccessControl(builder.Configuration);       
 builder.Services.AddNotifications(builder.Configuration);
 
 var app = builder.Build();
 
 app.UseExceptionHandler();
+
+// Aqui lo que hago es aplicar las migraciones de cada modulo al iniciar
 await app.Services.ApplyNotificationsMigrationsAsync();
+await app.Services.ApplyAccessControlMigrationsAsync();
 
 if (app.Environment.IsDevelopment())
 {
@@ -28,12 +33,8 @@ if (app.Environment.IsDevelopment())
     });                              
 }
 
-app.MapPost("/test/enqueue-email", async (EnqueueEmailRequest request, IEmailQueue queue) =>
-{
-    await queue.EnqueueAsync(request.To, request.Subject, request.Body);
-    return Results.Accepted();
-});
+// Mapeo de endpoints
+app.MapAccessControlEndpoints();
 
 
 app.Run();
-internal sealed record EnqueueEmailRequest(string To, string Subject, string Body);

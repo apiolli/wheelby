@@ -5,6 +5,7 @@
     <ProjectReference Include="..\AccessControl.Contracts\AccessControl.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
+    <ProjectReference Include="..\..\Notifications\Notifications.Contracts\Notifications.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -17,6 +17,7 @@ internal sealed class GlobalExceptionHandler(
         {
             ValidationException validation => CreateValidationProblem(validation),
             AppException app => CreateAppProblem(app),
+            BadHttpRequestException => CreateBadRequestProblem(exception),
             _ => CreateUnexpectedProblem(exception, httpContext)
         };
 
@@ -75,6 +76,19 @@ internal sealed class GlobalExceptionHandler(
             Status = StatusCodes.Status500InternalServerError,
             Title = ReasonPhrases.GetReasonPhrase(StatusCodes.Status500InternalServerError),
             Detail = "Ocurrió un error interno del servidor."
+        };
+    }
+
+    // 400: el JSON está roto o un parámetro no tiene el tipo esperado
+    private ProblemDetails CreateBadRequestProblem(Exception exception)
+    {
+        logger.LogWarning("Request rejected (400): malformed request ({Reason})", exception.GetType().Name);
+
+        return new ProblemDetails
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = ReasonPhrases.GetReasonPhrase(StatusCodes.Status400BadRequest),
+            Detail = "La solicitud no tiene un formato válido."
         };
     }
 }
