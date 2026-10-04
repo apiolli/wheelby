@@ -68,7 +68,7 @@ public sealed class User : AggregateRoot<Guid>
         ActivatedAt = utcNow;
     }
 
-    // Inicio de sesión
+    // A partir de aqui inicio de sesión
     public bool IsLocked(DateTime utcNow) => LockedUntil is not null && utcNow < LockedUntil;
 
     public void EnsureNotLocked(DateTime utcNow)
