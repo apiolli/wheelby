@@ -1,6 +1,7 @@
 using AccessControl.Application.Features.Activate;
 using AccessControl.Application.Features.GetCurrentUser;
 using AccessControl.Application.Features.Logout;
+using AccessControl.Application.Features.Refresh;
 using AccessControl.Application.Features.Register;
 using AccessControl.Application.Features.ResendActivation;
 using Accessontrol.Application.Features.Login;
@@ -62,6 +63,10 @@ public static class AccessControlEndpoints
         auth.MapGet("/me", async (ISender sender, CancellationToken ct)
             => Results.Ok(await sender.Send(new GetCurrentUserQuery(), ct)))
             .RequireAuthorization();
+
+        auth.MapPost("/refresh", async (ISender sender, CancellationToken ct)
+            => Results.Ok(await sender.Send(new RefreshSessionCommand(), ct)))
+            .RequireAuthorization();    
 
         return app;
     }
