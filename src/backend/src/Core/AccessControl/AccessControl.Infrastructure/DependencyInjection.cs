@@ -8,6 +8,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using AccessControl.Contracts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using MediatR;
+using AccessControl.Application.Features.EnsureAdministrator;
 
 namespace AccessControl.Infrastructure;
 
@@ -59,7 +61,10 @@ public static class DependencyInjection
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
         services.ConfigureOptions<ConfigureJwtBearerOptions>();
-        services.AddAuthorization();
+        services.AddAuthorizationBuilder()
+            .AddPolicy(AccessControlPolicies.RequireAdministrator, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireRole(AccessControlRoles.Administrator));
 
         return services;
     }
@@ -71,5 +76,25 @@ public static class DependencyInjection
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AccessControlDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
+    }
+
+        private const string AdministratorFullName = "Administrador";
+
+    // Garantiza que exista el Administrador fijo
+    public static async Task SeedAdministratorAsync(
+        this IServiceProvider services, CancellationToken cancellationToken = default)
+    {
+        using var scope = services.CreateScope();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+
+        var email = configuration["Admin:Email"];
+        var password = configuration["Admin:Password"];
+
+        // Si falta alguna, la API no arranca: sin Administrador no se puede administrar nada.
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            throw new InvalidOperationException("Faltan las variables Admin__Email y Admin__Password.");
+
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        await sender.Send(new EnsureAdministratorCommand(AdministratorFullName, email, password), cancellationToken);
     }
 }
