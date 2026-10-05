@@ -1,13 +1,17 @@
 using AccessControl.Application.Features.Activate;
+using AccessControl.Application.Features.ChangePassword;
 using AccessControl.Application.Features.ChangeRole;
 using AccessControl.Application.Features.DisableUser;
 using AccessControl.Application.Features.EnableUser;
+using AccessControl.Application.Features.ForcePasswordReset;
 using AccessControl.Application.Features.GetCurrentUser;
 using AccessControl.Application.Features.ListUsers;
 using AccessControl.Application.Features.Logout;
 using AccessControl.Application.Features.Refresh;
 using AccessControl.Application.Features.Register;
+using AccessControl.Application.Features.RequestPasswordReset;
 using AccessControl.Application.Features.ResendActivation;
+using AccessControl.Application.Features.ResetPassword;
 using AccessControl.Contracts;
 using Accessontrol.Application.Features.Login;
 using MediatR;
@@ -77,6 +81,25 @@ public static class AccessControlEndpoints
         auth.MapPost("/refresh", async (ISender sender, CancellationToken ct)
             => Results.Ok(await sender.Send(new RefreshSessionCommand(), ct)))
             .RequireAuthorization();
+
+        auth.MapPost("/forgot-password", async (ForgotPasswordRequest request, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new RequestPasswordResetCommand(request.Email), ct);
+            return Results.Ok(new
+            {
+                message = "Si el correo corresponde a una cuenta activa, recibirás un código para restablecer tu contraseña."
+            });
+        });
+
+        auth.MapPost("/reset-password", async (ResetPasswordRequest request, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new ResetPasswordCommand(request.Email, request.Code, request.NewPassword), ct);
+            return Results.Ok(new { message = "Contraseña restablecida. Ya puedes iniciar sesión." });
+        });
+
+        auth.MapPost("/change-password", async (ChangePasswordRequest request, ISender sender, CancellationToken ct)
+            => Results.Ok(await sender.Send(new ChangePasswordCommand(request.CurrentPassword, request.NewPassword), ct)))
+            .RequireAuthorization();
     }
 
     private static void MapAdminUserEndpoints(IEndpointRouteBuilder app)
@@ -105,6 +128,12 @@ public static class AccessControlEndpoints
             await sender.Send(new EnableUserCommand(id), ct);
             return Results.NoContent();
         });
+
+        admin.MapPost("/{id:guid}/force-password-reset", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new ForcePasswordResetCommand(id), ct);
+            return Results.NoContent();
+        });
     }
 
     private sealed record RegisterRequest(string FullName, string Email, string Password);
@@ -112,4 +141,7 @@ public static class AccessControlEndpoints
     private sealed record ResendRequest(string Email);
     private sealed record LoginRequest(string Email, string Password);
     private sealed record ChangeRoleRequest(string Role);
+    private sealed record ForgotPasswordRequest(string Email);
+    private sealed record ResetPasswordRequest(string Email, string Code, string NewPassword);
+    private sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 }

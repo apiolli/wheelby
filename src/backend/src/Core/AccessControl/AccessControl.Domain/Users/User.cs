@@ -17,12 +17,14 @@ public sealed class User : AggregateRoot<Guid>
     public DateTime? ActivatedAt { get; private set; }
     public DateTime? DisabledAt { get; private set; }
     public OneTimeToken? ActivationToken { get; private set; }
+    public OneTimeToken? PasswordResetToken { get; private set; }
     public int FailedLoginAttempts { get; private set; }
     public DateTime? LockedUntil { get; private set; }
 
     public bool IsActive => ActivatedAt is not null;
     public bool IsDisabled => DisabledAt is not null;
     public static readonly TimeSpan ActivationTokenLifetime = TimeSpan.FromHours(24);
+    public static readonly TimeSpan PasswordResetTokenLifetime = TimeSpan.FromMinutes(30);
     public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
     private User() : base(Guid.Empty) { }
@@ -132,6 +134,42 @@ public sealed class User : AggregateRoot<Guid>
     }
 
     public void Enable() => DisabledAt = null;
+
+    // --- Recuperación y cambio de contraseña ---
+    // Emitir uno nuevo reemplaza al anterior.
+    public void IssuePasswordResetToken(string tokenHash, DateTime utcNow)
+        => PasswordResetToken = OneTimeToken.Issue(tokenHash, utcNow, PasswordResetTokenLifetime);
+
+    // Un solo rechazo para código inexistente, incorrecto, vencido o usado. Si falla, nada cambia.
+    public void ResetPassword(string tokenHash, string newPasswordHash, DateTime utcNow)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(newPasswordHash);
+
+        if (PasswordResetToken is null || !PasswordResetToken.IsValidFor(tokenHash, utcNow))
+            throw new InvalidPasswordResetTokenException();
+
+        PasswordResetToken = PasswordResetToken.MarkAsUsed(utcNow);
+        PasswordHash = newPasswordHash;
+        RegisterSuccessfulLogin(); // contador y bloqueo en cero
+    }
+
+    // Cambio con sesión (la contraseña actual ya se verificó en el handler).
+    public void ChangePassword(string newPasswordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(newPasswordHash);
+
+        PasswordHash = newPasswordHash;
+        PasswordResetToken = null; // invalida cualquier código pendiente
+    }
+
+    // Restablecimiento forzado: la contraseña anterior deja de servir y se emite un código nuevo.
+    public void ForcePasswordReset(string unusablePasswordHash, string tokenHash, DateTime utcNow)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(unusablePasswordHash);
+
+        PasswordHash = unusablePasswordHash;
+        IssuePasswordResetToken(tokenHash, utcNow);
+    }
 
     // Red de seguridad del seed: deja al Administrador fijo con rol, activo y habilitado.
     // No toca su contraseña.

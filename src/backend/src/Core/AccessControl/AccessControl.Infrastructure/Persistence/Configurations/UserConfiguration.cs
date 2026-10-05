@@ -42,6 +42,14 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             token.Property(t => t.UsedAt).HasColumnName("ActivationTokenUsedAt");
         });
 
+        builder.ComplexProperty(u => u.PasswordResetToken, token =>
+        {
+            token.Property(t => t.TokenHash).HasColumnName("PasswordResetTokenHash").HasMaxLength(64);
+            token.Property(t => t.IssuedAt).HasColumnName("PasswordResetTokenIssuedAt");
+            token.Property(t => t.ExpiresAt).HasColumnName("PasswordResetTokenExpiresAt");
+            token.Property(t => t.UsedAt).HasColumnName("PasswordResetTokenUsedAt");
+        });
+
         builder.Property(u => u.FailedLoginAttempts).IsRequired();
         builder.Property(u => u.LockedUntil);
         builder.Property(u => u.DisabledAt);
