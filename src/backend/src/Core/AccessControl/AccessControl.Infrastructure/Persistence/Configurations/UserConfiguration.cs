@@ -44,8 +44,10 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.FailedLoginAttempts).IsRequired();
         builder.Property(u => u.LockedUntil);
+        builder.Property(u => u.DisabledAt);
 
         builder.Ignore(u => u.IsActive);
+        builder.Ignore(u => u.IsDisabled);
         builder.Ignore(u => u.DomainEvents);
     }
 }

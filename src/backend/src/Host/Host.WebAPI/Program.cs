@@ -25,6 +25,7 @@ app.UseAuthorization();
 // Aqui lo que hago es aplicar las migraciones de cada modulo al iniciar
 await app.Services.ApplyNotificationsMigrationsAsync();
 await app.Services.ApplyAccessControlMigrationsAsync();
+await app.Services.SeedAdministratorAsync();
 
 if (app.Environment.IsDevelopment())
 {

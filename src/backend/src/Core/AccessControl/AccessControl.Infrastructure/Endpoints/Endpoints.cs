@@ -1,9 +1,14 @@
 using AccessControl.Application.Features.Activate;
+using AccessControl.Application.Features.ChangeRole;
+using AccessControl.Application.Features.DisableUser;
+using AccessControl.Application.Features.EnableUser;
 using AccessControl.Application.Features.GetCurrentUser;
+using AccessControl.Application.Features.ListUsers;
 using AccessControl.Application.Features.Logout;
 using AccessControl.Application.Features.Refresh;
 using AccessControl.Application.Features.Register;
 using AccessControl.Application.Features.ResendActivation;
+using AccessControl.Contracts;
 using Accessontrol.Application.Features.Login;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
@@ -15,6 +20,13 @@ namespace AccessControl.Infrastructure;
 public static class AccessControlEndpoints
 {
     public static IEndpointRouteBuilder MapAccessControlEndpoints(this IEndpointRouteBuilder app)
+    {
+        MapAuthEndpoints(app);
+        MapAdminUserEndpoints(app);
+        return app;
+    }
+
+    private static void MapAuthEndpoints(IEndpointRouteBuilder app)
     {
         var auth = app.MapGroup("/auth").WithTags("Auth");
 
@@ -32,8 +44,8 @@ public static class AccessControlEndpoints
             await sender.Send(new ActivateAccountCommand(userId, token), ct);
             return Results.Ok(new { message = "Cuenta activada. Ya puedes iniciar sesión." });
         });
-        
-        // Post para el frontend
+
+        // POST para el frontend
         auth.MapPost("/activate", async (ActivateRequest request, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new ActivateAccountCommand(request.UserId, request.Token), ct);
@@ -43,7 +55,6 @@ public static class AccessControlEndpoints
         auth.MapPost("/resend-activation", async (ResendRequest request, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new ResendActivationCommand(request.Email), ct);
-            // Respuesta idéntica exista o no el correo
             return Results.Ok(new
             {
                 message = "Si el correo corresponde a una cuenta pendiente de activar, recibirás un nuevo enlace."
@@ -57,7 +68,6 @@ public static class AccessControlEndpoints
         {
             await sender.Send(new LogoutCommand(), ct);
             return Results.NoContent();
-
         }).RequireAuthorization();
 
         auth.MapGet("/me", async (ISender sender, CancellationToken ct)
@@ -66,13 +76,40 @@ public static class AccessControlEndpoints
 
         auth.MapPost("/refresh", async (ISender sender, CancellationToken ct)
             => Results.Ok(await sender.Send(new RefreshSessionCommand(), ct)))
-            .RequireAuthorization();    
+            .RequireAuthorization();
+    }
 
-        return app;
+    private static void MapAdminUserEndpoints(IEndpointRouteBuilder app)
+    {
+        var admin = app.MapGroup("/admin/users")
+            .WithTags("Admin: users")
+            .RequireAuthorization(AccessControlPolicies.RequireAdministrator);
+
+        admin.MapGet("", async (int? page, int? pageSize, ISender sender, CancellationToken ct)
+            => Results.Ok(await sender.Send(new ListUsersQuery(page ?? 1, pageSize ?? 20), ct)));
+
+        admin.MapPatch("/{id:guid}/role", async (Guid id, ChangeRoleRequest request, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new ChangeUserRoleCommand(id, request.Role), ct);
+            return Results.NoContent();
+        });
+
+        admin.MapPost("/{id:guid}/disable", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new DisableUserCommand(id), ct);
+            return Results.NoContent();
+        });
+
+        admin.MapPost("/{id:guid}/enable", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new EnableUserCommand(id), ct);
+            return Results.NoContent();
+        });
     }
 
     private sealed record RegisterRequest(string FullName, string Email, string Password);
     private sealed record ActivateRequest(Guid UserId, string Token);
     private sealed record ResendRequest(string Email);
     private sealed record LoginRequest(string Email, string Password);
+    private sealed record ChangeRoleRequest(string Role);
 }

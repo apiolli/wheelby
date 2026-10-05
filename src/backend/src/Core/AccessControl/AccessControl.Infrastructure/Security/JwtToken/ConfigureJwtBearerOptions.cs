@@ -81,11 +81,12 @@ internal sealed class ConfigureJwtBearerOptions(IOptions<JwtOptions> jwtOptions)
                 from session in db.Sessions
                 join user in db.Users on session.UserId equals user.Id
                 where session.Id == sessionId && session.UserId == userId
-                select new { session.RevokedAt, session.ExpiresAt, user.ActivatedAt, user.Email, user.Role })
+                select new { session.RevokedAt, session.ExpiresAt, user.ActivatedAt, user.DisabledAt, user.Email, user.Role })
             .AsNoTracking()
             .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
 
-        if (data is null || data.RevokedAt is not null || now >= data.ExpiresAt || data.ActivatedAt is null)
+        if (data is null || data.RevokedAt is not null || now >= data.ExpiresAt
+            || data.ActivatedAt is null || data.DisabledAt is not null)
         {
             context.Fail("Session is not valid.");
             return;

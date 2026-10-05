@@ -14,4 +14,10 @@ internal sealed class SessionRepository(AccessControlDbContext db) : ISessionRep
 
     public Task SaveChangesAsync(CancellationToken cancellationToken)
         => db.SaveChangesAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Session>> GetActiveByUserIdAsync(
+        Guid userId, DateTime utcNow, CancellationToken cancellationToken)
+        => await db.Sessions
+            .Where(s => s.UserId == userId && s.RevokedAt == null && s.ExpiresAt > utcNow)
+            .ToListAsync(cancellationToken);    
 }
