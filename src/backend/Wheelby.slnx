@@ -20,4 +20,11 @@
     <Project Path="src/Shared/Shared.Application/Shared.Application.csproj" />
     <Project Path="src/Shared/SharedKernel/SharedKernel.csproj" />
   </Folder>
+  <Folder Name="/Domain/" />
+  <Folder Name="/Domain/Wheelby/">
+    <Project Path="src/Domain/Wheelby/Wheelby.Application/Wheelby.Application.csproj" />
+    <Project Path="src/Domain/Wheelby/Wheelby.Contracts/Wheelby.Contracts.csproj" />
+    <Project Path="src/Domain/Wheelby/Wheelby.Domain/Wheelby.Domain.csproj" />
+    <Project Path="src/Domain/Wheelby/Wheelby.Infrastructure/Wheelby.Infrastructure.csproj" />
+  </Folder>
 </Solution>

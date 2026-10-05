@@ -5,6 +5,7 @@
     <ProjectReference Include="..\..\Shared\Shared.Application\Shared.Application.csproj" />
     <ProjectReference Include="..\..\Core\AccessControl\AccessControl.Infrastructure\AccessControl.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Core\Notifications\Notifications.Infrastructure\Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Domain\Wheelby\Wheelby.Infrastructure\Wheelby.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
