@@ -13,7 +13,7 @@ Registro con activación por correo, sesión, roles, administración de usuarios
 | Administración de usuarios          | RF-CA-04, 05, 06, 08, 20, 21               | Implementado |
 | Recuperación de contraseña          | RF-CA-09 a 13, 22                          | Implementado |
 | Cola de correos (mínima)            | RF-NOT-08, 09, 12, 13                      | Implementado |
-| Estructura de la máquina de estados | RF-NEG-03, 04, 05, RD-04                   | Pendiente    |
+| Estructura de la máquina de estados | RF-NEG-03, 04, 05, RD-04                   | Implementado    |
 
 Las secciones marcadas como **Pendiente** se completan en el PR que las implementa. Mientras tanto no se pueden verificar.
 
