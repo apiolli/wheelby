@@ -1,4 +1,5 @@
 using AccessControl.Application.Abstractions;
+using AccessControl.Application.Common;
 using AccessControl.Contracts;
 using MediatR;
 using Shared.Application.Abstractions;
@@ -15,7 +16,7 @@ internal sealed class DisableUserCommandHandler(
     public async Task<Unit> Handle(DisableUserCommand request, CancellationToken cancellationToken)
     {
         var user = await users.GetByIdAsync(request.UserId, cancellationToken)
-            ?? throw new NotFoundException("El usuario no existe");
+            ?? throw new NotFoundException("El usuario no existe.");
 
         var utcNow = clock.UtcNow;
 
@@ -23,8 +24,7 @@ internal sealed class DisableUserCommandHandler(
         user.Disable(currentUser.Id, utcNow);
 
         // Se revocan todas sus sesiones
-        foreach (var session in await sessions.GetActiveByUserIdAsync(user.Id, utcNow, cancellationToken))
-            session.Revoke(utcNow);
+        await SessionRevocation.RevokeAllAsync(sessions, user.Id, utcNow, cancellationToken);
             
         await users.SaveChangesAsync(cancellationToken);
         return Unit.Value;
