@@ -42,6 +42,9 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             token.Property(t => t.UsedAt).HasColumnName("ActivationTokenUsedAt");
         });
 
+        builder.Property(u => u.FailedLoginAttempts).IsRequired();
+        builder.Property(u => u.LockedUntil);
+
         builder.Ignore(u => u.IsActive);
         builder.Ignore(u => u.DomainEvents);
     }

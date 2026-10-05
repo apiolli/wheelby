@@ -8,7 +8,9 @@ public sealed class User : AggregateRoot<Guid>
 {
     public const int FullNameMinLength = 2;
     public const int FullNameMaxLength = 100;
+    public const int MaxFailedLoginAttempts = 5;
     public static readonly TimeSpan ActivationTokenLifetime = TimeSpan.FromHours(24);
+    public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
     public string FullName { get; private set; } = default!;
     public Email Email { get; private set; } = default!;
     public string PasswordHash { get; private set; } = default!;
@@ -16,10 +18,11 @@ public sealed class User : AggregateRoot<Guid>
     public DateTime CreatedAt { get; private set; }
     public DateTime? ActivatedAt { get; private set; }
     public OneTimeToken? ActivationToken { get; private set; }
+    public int FailedLoginAttempts { get; private set; }
+    public DateTime? LockedUntil { get; private set; }
 
     public bool IsActive => ActivatedAt is not null;
 
-    // Constructor para EF Core
     private User() : base(Guid.Empty) { }
 
     private User(Guid id, string fullName, Email email, string passwordHash, DateTime utcNow)
@@ -63,5 +66,38 @@ public sealed class User : AggregateRoot<Guid>
 
         ActivationToken = ActivationToken.MarkAsUsed(utcNow);
         ActivatedAt = utcNow;
+    }
+
+    // A partir de aqui inicio de sesión
+    public bool IsLocked(DateTime utcNow) => LockedUntil is not null && utcNow < LockedUntil;
+
+    public void EnsureNotLocked(DateTime utcNow)
+    {
+        if (IsLocked(utcNow))
+            throw new AccountLockedException();
+    }
+
+    public void EnsureCanSignIn()
+    {
+        if (!IsActive)
+            throw new AccountNotActiveException();
+    }
+
+    public void RegisterFailedLogin(DateTime utcNow)
+    {
+        FailedLoginAttempts++;
+
+        if (FailedLoginAttempts >= MaxFailedLoginAttempts)
+        {
+            LockedUntil = utcNow.Add(LockoutDuration);
+            FailedLoginAttempts = 0; // al vencer el bloqueo, vuelve a tener cinco intentos
+        }
+    }
+
+    // Un inicio de sesión correcto pone el contador en cero
+    public void RegisterSuccessfulLogin()
+    {
+        FailedLoginAttempts = 0;
+        LockedUntil = null;
     }
 }
