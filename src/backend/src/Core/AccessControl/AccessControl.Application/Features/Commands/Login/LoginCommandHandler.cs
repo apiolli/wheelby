@@ -1,4 +1,5 @@
 using AccessControl.Application.Abstractions;
+using AccessControl.Application.Common;
 using AccessControl.Domain.Sessions;
 using AccessControl.Domain.Users.Exceptions;
 using Accessontrol.Application.Features.Login;
@@ -44,14 +45,9 @@ internal sealed class LoginCommandHandler(
         // 5. Éxito
         user.RegisterSuccessfulLogin();
 
-        var session = Session.Start(user.Id, utcNow, tokenIssuer.Lifetime);
-        await sessions.AddAsync(session, cancellationToken);
+        var token = await SessionStart.StartAsync(
+            sessions, tokenIssuer, user.Id, utcNow, cancellationToken);
 
-        // Los repositorios comparten el DbContext del módulo (uno por petición), así que este
-        // único guardado persiste el contador del usuario y la sesión en una sola transacción.
-        await sessions.SaveChangesAsync(cancellationToken);
-
-        var token = tokenIssuer.Issue(user.Id, session.Id, session.CreatedAt, session.ExpiresAt);
         return new LoginResultDTO(token.Value, token.ExpiresAt);
     }
 }
