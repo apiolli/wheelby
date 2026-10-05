@@ -9,19 +9,21 @@ public sealed class User : AggregateRoot<Guid>
     public const int FullNameMinLength = 2;
     public const int FullNameMaxLength = 100;
     public const int MaxFailedLoginAttempts = 5;
-    public static readonly TimeSpan ActivationTokenLifetime = TimeSpan.FromHours(24);
-    public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
     public string FullName { get; private set; } = default!;
     public Email Email { get; private set; } = default!;
     public string PasswordHash { get; private set; } = default!;
     public Role Role { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? ActivatedAt { get; private set; }
+    public DateTime? DisabledAt { get; private set; }
     public OneTimeToken? ActivationToken { get; private set; }
     public int FailedLoginAttempts { get; private set; }
     public DateTime? LockedUntil { get; private set; }
 
     public bool IsActive => ActivatedAt is not null;
+    public bool IsDisabled => DisabledAt is not null;
+    public static readonly TimeSpan ActivationTokenLifetime = TimeSpan.FromHours(24);
+    public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
     private User() : base(Guid.Empty) { }
 
@@ -51,6 +53,14 @@ public sealed class User : AggregateRoot<Guid>
         return new User(Guid.NewGuid(), cleanName, email, passwordHash, utcNow);
     }
 
+    public static User CreateAdministrator(string? fullName, Email email, string passwordHash, DateTime utcNow)
+    {
+        var user = Create(fullName, email, passwordHash, utcNow);
+        user.Role = Role.Administrator;
+        user.ActivatedAt = utcNow;
+        return user;
+    }
+
     public void IssueActivationToken(string tokenHash, DateTime utcNow)
     {
         if (IsActive)
@@ -68,7 +78,8 @@ public sealed class User : AggregateRoot<Guid>
         ActivatedAt = utcNow;
     }
 
-    // A partir de aqui inicio de sesión
+    // Inicio de sesión
+
     public bool IsLocked(DateTime utcNow) => LockedUntil is not null && utcNow < LockedUntil;
 
     public void EnsureNotLocked(DateTime utcNow)
@@ -79,6 +90,9 @@ public sealed class User : AggregateRoot<Guid>
 
     public void EnsureCanSignIn()
     {
+        if (IsDisabled)
+            throw new AccountDisabledException();
+
         if (!IsActive)
             throw new AccountNotActiveException();
     }
@@ -90,14 +104,41 @@ public sealed class User : AggregateRoot<Guid>
         if (FailedLoginAttempts >= MaxFailedLoginAttempts)
         {
             LockedUntil = utcNow.Add(LockoutDuration);
-            FailedLoginAttempts = 0; // al vencer el bloqueo, vuelve a tener cinco intentos
+            FailedLoginAttempts = 0;
         }
     }
 
-    // Un inicio de sesión correcto pone el contador en cero
     public void RegisterSuccessfulLogin()
     {
         FailedLoginAttempts = 0;
         LockedUntil = null;
+    }
+
+    // --- Administración ---
+    public void ChangeRole(Role newRole)
+    {
+        if (!Enum.IsDefined(newRole))
+            throw new InvalidUserDataException("El rol no es válido.");
+
+        Role = newRole;
+    }
+
+    public void Disable(Guid actorId, DateTime utcNow)
+    {
+        if (actorId == Id)
+            throw new CannotDisableSelfException();
+
+        DisabledAt ??= utcNow;
+    }
+
+    public void Enable() => DisabledAt = null;
+
+    // Red de seguridad del seed: deja al Administrador fijo con rol, activo y habilitado.
+    // No toca su contraseña.
+    public void RestoreAdministratorAccess(DateTime utcNow)
+    {
+        Role = Role.Administrator;
+        DisabledAt = null;
+        ActivatedAt ??= utcNow;
     }
 }
