@@ -258,7 +258,7 @@ Con la API corriendo, en Scalar (`http://localhost:5299/scalar/v1`):
 
 ## 9. Cómo verificar los criterios
 
-- **Control de acceso y correo por cola** (RF-CA-01 a 22, RF-NOT-08, 09, 12, 13): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/control-de-acceso/README.md](docs/control-de-acceso/README.md).
+- **Control de acceso y correo por cola** (RF-CA-01 a 22, RF-NOT-08, 09, 12, 13): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/control-de-acceso/README.md](docs/control-acceso/README.md).
 - **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquina-de-estados.md](docs/maquina-de-estados.md).
 
 Atajos útiles para las pruebas:
