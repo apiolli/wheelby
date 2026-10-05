@@ -1,6 +1,9 @@
 using AccessControl.Application.Features.Activate;
+using AccessControl.Application.Features.GetCurrentUser;
+using AccessControl.Application.Features.Logout;
 using AccessControl.Application.Features.Register;
 using AccessControl.Application.Features.ResendActivation;
+using Accessontrol.Application.Features.Login;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -46,10 +49,25 @@ public static class AccessControlEndpoints
             });
         });
 
+        auth.MapPost("/login", async (LoginRequest request, ISender sender, CancellationToken ct)
+            => Results.Ok(await sender.Send(new LoginCommand(request.Email, request.Password), ct)));
+
+        auth.MapPost("/logout", async (ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new LogoutCommand(), ct);
+            return Results.NoContent();
+
+        }).RequireAuthorization();
+
+        auth.MapGet("/me", async (ISender sender, CancellationToken ct)
+            => Results.Ok(await sender.Send(new GetCurrentUserQuery(), ct)))
+            .RequireAuthorization();
+
         return app;
     }
 
     private sealed record RegisterRequest(string FullName, string Email, string Password);
     private sealed record ActivateRequest(Guid UserId, string Token);
     private sealed record ResendRequest(string Email);
+    private sealed record LoginRequest(string Email, string Password);
 }

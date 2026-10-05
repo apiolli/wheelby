@@ -3,14 +3,14 @@ using Shared.Application;
 using Scalar.AspNetCore;
 using AccessControl.Infrastructure;
 using Notifications.Infrastructure;
+using Host.WebAPI.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer<BearerSecuritySchemeTransformer>());
 builder.Services.AddProblemDetails();
 builder.Services.AddSharedApplication();  
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-
 
 // DI de cada modulo
 builder.Services.AddAccessControl(builder.Configuration);       
@@ -19,6 +19,8 @@ builder.Services.AddNotifications(builder.Configuration);
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Aqui lo que hago es aplicar las migraciones de cada modulo al iniciar
 await app.Services.ApplyNotificationsMigrationsAsync();
