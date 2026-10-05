@@ -19,7 +19,7 @@ internal sealed class ResendActivationCommandHandler(
         var email = Email.Create(request.Email);
         var user = await users.GetByEmailAsync(email, cancellationToken);
 
-        if (user is null || user.IsActive)
+        if (user is null || user.IsActive || user.IsDisabled)
             return Unit.Value;
 
         var token = tokenGenerator.Generate();
