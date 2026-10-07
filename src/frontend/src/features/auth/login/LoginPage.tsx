@@ -13,7 +13,6 @@ import {
   FloatingField,
   ModalFoot,
   PasswordField,
-  SocialButtons,
   SubmitButton,
   TextLink,
 } from "../components/FormFields";
@@ -25,20 +24,7 @@ import { login, resendActivation } from "@/mock/auth";
 import { DEMO, DEMO_ADMIN, DEMO_INACTIVE } from "@/mock/demo";
 import { Notice } from "./components/Notice";
 import { DemoCode } from "./components/DemoCode";
-
-type LoginError =
-  | { kind: "invalid" }
-  | { kind: "inactive" }
-  | { kind: "locked"; until: number };
-
-// Mensajes discretos: el de credenciales no dice qué dato falló y el de bloqueo no da el
-// número de intentos ni el tiempo exacto restante.
-const ERRORS: Record<LoginError["kind"], string> = {
-  invalid:
-    "El correo o la contraseña no son correctos. Revisa tus datos e inténtalo de nuevo.",
-  inactive: "Tu cuenta aún no está activa. Revisa tu correo para activarla.",
-  locked: "Demasiados intentos. Intenta de nuevo en unos minutos.",
-};
+import { useLogin } from "./hooks/useLogin";
 
 export const LOGIN_NOTICE_ID = "login-notice";
 
@@ -47,7 +33,6 @@ interface LoginFormProps {
   notice?: AuthNotice;
   onSwitch: () => void;
   onRecover: (email: string) => void;
-  onToast: (msg: string) => void;
 }
 
 export default function LoginForm({
@@ -55,69 +40,8 @@ export default function LoginForm({
   notice,
   onSwitch,
   onRecover,
-  onToast,
 }: LoginFormProps) {
-  const [email, setEmail] = useState(initialEmail);
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<LoginError | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [resent, setResent] = useState(false);
-  const errorRef = useRef<HTMLDivElement>(null);
-  const { swap, shake, stopScene, resumeScene, celebrate } = useAuthMotion();
-  const { signIn } = useSession();
-
-  const lockedUntil = error?.kind === "locked" ? error.until : null;
-  // La escena del panel no forma parte del estado del formulario: se avisa sin ser dependencia.
-  const pauseScene = useEffectEvent(() => stopScene());
-  const continueScene = useEffectEvent(() => resumeScene());
-  const locked = lockedUntil !== null;
-
-  useEffect(() => {
-    if (lockedUntil === null) return;
-    // El botón enfocado queda deshabilitado: llevamos el foco al aviso para no perderlo.
-    errorRef.current?.focus();
-    // El vehículo de la escena se detiene mientras dure el bloqueo.
-    pauseScene();
-    // Al vencer el bloqueo se reactiva el formulario.
-    const t = setTimeout(() => setError(null), lockedUntil - Date.now());
-    return () => {
-      clearTimeout(t);
-      continueScene();
-    };
-  }, [lockedUntil]);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    const res = await login(email, password);
-    if (res.ok) {
-      // GET /auth/me valida el token mientras corre la animación de salida; la sesión (y con ella
-      // la navegación al catálogo) solo empieza cuando ambas terminan.
-      if (await signIn(res.token, celebrate())) return;
-      setLoading(false);
-      setError({ kind: "invalid" });
-      return;
-    }
-    setLoading(false);
-    setError(
-      res.reason === "locked"
-        ? { kind: "locked", until: res.until }
-        : { kind: res.reason },
-    );
-    // Solo el error de credenciales sacude el modal; el bloqueo no es un error de tecleo.
-    if (res.reason === "invalid") shake();
-  };
-
-  const resend = async () => {
-    setResending(true);
-    await resendActivation(email);
-    swap(() => {
-      setResending(false);
-      setResent(true);
-    });
-  };
+  const {} = useLogin();
 
   // Reenvío de activación: mismo estado de confirmación que el registro, en el mismo modal.
   if (resent) {
@@ -176,8 +100,6 @@ export default function LoginForm({
             )}
           </div>
         )}
-
-        <SocialButtons onSocial={(p) => onToast(`Continuar con ${p} (demo)`)} />
 
         <FloatingField
           id="login-email"

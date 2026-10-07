@@ -142,42 +142,6 @@ export function PasswordField({
   );
 }
 
-export function SocialButtons({
-  onSocial,
-}: {
-  onSocial: (provider: "Google" | "Apple") => void;
-}) {
-  return (
-    <>
-      <div className="grid gap-2.5">
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="relative w-full"
-          onClick={() => onSocial("Google")}
-        >
-          <GoogleLogo className="absolute left-5 size-5" />
-          Continuar con Google
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="relative w-full"
-          onClick={() => onSocial("Apple")}
-        >
-          <AppleLogo className="absolute left-5 size-5" />
-          Continuar con Apple
-        </Button>
-      </div>
-      <div className="my-5 flex items-center gap-3.5 text-[12.5px] text-muted-foreground">
-        <Separator className="flex-1" />o<Separator className="flex-1" />
-      </div>
-    </>
-  );
-}
-
 type SubmitButtonProps = ComponentProps<typeof Button> & {
   loading: boolean;
   // Páginas de acceso: al enviar, el botón se encoge a un círculo con el indicador de carga.
