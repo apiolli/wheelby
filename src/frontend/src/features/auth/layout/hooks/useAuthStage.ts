@@ -5,23 +5,35 @@ import { useAuthFeedback } from "./useAuthFeedback";
 import { useAuthScene } from "./useAuthScene";
 import { useAuthMotionForms } from "./useAuthMotionForms";
 import { useAuthTransition } from "./useAuthTransition";
+import type { StageRefs } from "../types";
 
 export const useAuthStage = () => {
   const { pathname } = useLocation();
   const side = pathname.startsWith("/registro") ? "right" : "left";
 
-  const refs = {
-    rootRef: useRef<HTMLDivElement>(null),
-    panelRef: useRef<HTMLElement>(null),
-    columnRef: useRef<HTMLElement>(null),
-    contentRef: useRef<HTMLDivElement>(null),
-    loop: useRef<gsap.core.Timeline | null>(null),
-    stopped: useRef(false),
-    busy: useRef(false),
-    pendingGo: useRef<{
-      flip: Flip.FlipState | null;
-      reduce: boolean;
-    } | null>(null),
+  // Cada useRef va suelto en el nivel superior: dentro del literal del objeto, React Compiler los
+  // mete en un bloque memoizado y en el segundo render se saltan (cambia el orden de los hooks).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const columnRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const loop = useRef<gsap.core.Timeline | null>(null);
+  const stopped = useRef(false);
+  const busy = useRef(false);
+  const pendingGo = useRef<{
+    flip: Flip.FlipState | null;
+    reduce: boolean;
+  } | null>(null);
+
+  const refs: StageRefs = {
+    rootRef,
+    panelRef,
+    columnRef,
+    contentRef,
+    loop,
+    stopped,
+    busy,
+    pendingGo,
   };
 
   const { contextSafe, forms } = useAuthMotionForms(refs, side);
