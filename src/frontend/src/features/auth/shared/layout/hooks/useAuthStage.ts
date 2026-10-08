@@ -9,7 +9,8 @@ import type { StageRefs } from "../types";
 
 export const useAuthStage = () => {
   const { pathname } = useLocation();
-  const side = pathname.startsWith("/registro") ? "right" : "left";
+  // Las rutas de acceso cuelgan de /auth: se mira el último segmento, no el inicio de la ruta.
+  const side = /\/registro\/?$/.test(pathname) ? "right" : "left";
 
   // Cada useRef va suelto en el nivel superior: dentro del literal del objeto, React Compiler los
   // mete en un bloque memoizado y en el segundo render se saltan (cambia el orden de los hooks).

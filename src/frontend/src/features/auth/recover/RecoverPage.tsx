@@ -12,8 +12,8 @@ export const RecoverPage = () => {
       key={key}
       email={state.email}
       onToast={showToast}
-      onBack={() => go("auth/login", { email: state.email })}
-      onDone={(email) => go("auth/login", { email, notice: "password-reset" })}
+      onBack={() => go("/auth/login", { email: state.email })}
+      onDone={(email) => go("/auth/login", { email, notice: "password-reset" })}
     />
   );
 };

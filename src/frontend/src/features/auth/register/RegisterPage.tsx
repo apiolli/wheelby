@@ -11,7 +11,7 @@ export const RegisterPage = () => {
     <RegisterForm
       key={key}
       onToast={showToast}
-      onSwitch={(email) => go("auth/login", { email })}
+      onSwitch={(email) => go("/auth/login", { email })}
     />
   );
 };
