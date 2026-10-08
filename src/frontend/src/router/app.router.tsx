@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from "react-router";
-import AuthLayout from "@/features/auth/layout/AuthLayout";
-import { LoginPage } from "@/features/auth/pages";
+import AuthLayout from "@/features/auth/shared/layout/AuthLayout";
+import { LoginPage } from "@/features/auth/login/LoginPage";
+import { RegisterPage } from "@/features/auth/register/RegisterPage";
+import { RecoverPage } from "@/features/auth/recover/RecoverPage";
 
 // const SearchPage = lazy(() => import("@/herores/pages/search/SearchPage"));
 
@@ -55,18 +57,18 @@ export const router = createBrowserRouter([
         path: "login",
         element: <LoginPage />,
       },
+      {
+        path: "registro",
+        element: <RegisterPage />,
+      },
+      {
+        path: "recuperar",
+        element: <RecoverPage />,
+      },
     ],
   },
   {
     path: "*",
     element: <Navigate to="/auth/login" replace />,
-  },
-  {
-    path: "/prueba",
-    element: (
-      <>
-        <h1 className="text-3xl font-bold">ESTO ES UNA PRUEBA GRANDE</h1>
-      </>
-    ),
   },
 ]);
