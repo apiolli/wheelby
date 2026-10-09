@@ -4,17 +4,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { register } from "@/mock/auth";
 import { cn } from "cn";
 import AuthPanel from "../../shared/components/AuthPanel";
-import {
-  TextLink,
-  FloatingField,
-  PasswordField,
-  SubmitButton,
-  ModalFoot,
-} from "../../shared/components/FormFields";
+import { SubmitButton } from "../../shared/components/SubmitButton";
 import MailSent from "../../shared/components/MailSent";
 import { useAuthMotion } from "../../shared/motion.context";
 import { EMAIL_RE, passwordChecks } from "../../../../lib/password";
 import PasswordStrength from "@/components/custom/PasswordStrength";
+import { FloatingField } from "../../shared/components/FloatingField";
+import { ModalFoot } from "../../shared/components/ModalFoot";
+import { PasswordField } from "../../shared/components/PasswordField";
+import { TextLink } from "../../shared/components/TextLink";
 
 interface RegisterFormProps {
   onSwitch: (email?: string) => void;

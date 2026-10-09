@@ -7,15 +7,13 @@ import PasswordStrength from "@/components/custom/PasswordStrength";
 import { requestPasswordReset, resetPassword } from "@/mock/auth";
 import { DEMO_RESET_CODE } from "@/mock/demo";
 import AuthPanel from "../../shared/components/AuthPanel";
-import {
-  FloatingField,
-  ModalFoot,
-  PasswordField,
-  SubmitButton,
-  TextLink,
-} from "../../shared/components/FormFields";
+import { SubmitButton } from "../../shared/components/SubmitButton";
 import MailSent from "../../shared/components/MailSent";
 import { useAuthMotion } from "../../shared/motion.context";
+import { FloatingField } from "../../shared/components/FloatingField";
+import { ModalFoot } from "../../shared/components/ModalFoot";
+import { PasswordField } from "../../shared/components/PasswordField";
+import { TextLink } from "../../shared/components/TextLink";
 
 type Step = "request" | "sent" | "reset";
 

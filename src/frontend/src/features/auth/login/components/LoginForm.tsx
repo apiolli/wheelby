@@ -3,17 +3,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DEMO, DEMO_ADMIN, DEMO_INACTIVE } from "@/mock/demo";
 import type { AuthNotice } from "@/types/types";
 import AuthPanel from "../../shared/components/AuthPanel";
-import {
-  TextLink,
-  FloatingField,
-  PasswordField,
-  SubmitButton,
-  ModalFoot,
-} from "../../shared/components/FormFields";
 import MailSent from "../../shared/components/MailSent";
 import { useLogin } from "../hooks/useLogin";
 import { DemoCode } from "./DemoCode";
 import { Notice } from "./Notice";
+import { FloatingField } from "../../shared/components/FloatingField";
+import { ModalFoot } from "../../shared/components/ModalFoot";
+import { PasswordField } from "../../shared/components/PasswordField";
+import { SubmitButton } from "../../shared/components/SubmitButton";
+import { TextLink } from "../../shared/components/TextLink";
 
 export const LOGIN_NOTICE_ID = "login-notice";
 
