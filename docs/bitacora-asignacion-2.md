@@ -16,9 +16,11 @@ Trabajé con dos agentes:
    4. Documentación (23–25): ~30 min.
    ```
 
-2. **Agente de construcción** (opencode, modo Build). Le entregué ese documento y le pedí implementar la pieza Gestión de permisos completa, con sus pruebas y su documentación:
+   Prompt que le di al agente de planificación:
 
    > Entonces con lo que tenemos ya planeado, recuerda que el core no toca ni sabe nada del dominio y funciona sin necesidad del dominio, como manejaria lo de la gestion entonces?, necesito realizar el modulo. Genera el plan en un README.
+
+2. **Agente de construcción** (opencode, modo Build). Le entregué ese documento y le pedí implementar la pieza Gestión de permisos completa, con sus pruebas y su documentación.
 
 ## 2. Qué devolvió
 
@@ -29,7 +31,7 @@ Trabajé con dos agentes:
 - Las rutas `/permissions/...` para cualquier usuario autenticado y `/admin/permissions/...` protegidas con la política de Administrador (RD-06).
 - Persistencia en PostgreSQL, esquema `permissions`, con dos migraciones y concurrencia optimista con `xmin` (RD-09).
 - 8 pruebas unitarias de dominio con xUnit, que pasan con `dotnet test` sin levantar la API (RD-12).
-- La documentación: `docs/gestion-permisos/README.md`, la sección de Permissions en `docs/maquita-de-estados/README.md`, la sección «Pruebas» del README y un archivo de apuntes con los errores que cometió (`docs/bitacora-asignacion-2-apuntes.md`).
+- La documentación: `docs/gestion-permisos/README.md`, la sección de Permissions en `docs/maquita-de-estados/README.md` y la sección «Pruebas» del README.
 
 ![dotnet test con las 8 pruebas aprobadas](bitacora/asignacion-2-dotnet-test.png)
 
@@ -71,7 +73,7 @@ A partir de esa instrucción el agente continuó sin pausas y terminó el trabaj
 
 ## 6. Otros errores que el agente corrigió solo
 
-El agente también se equivocó varias veces durante el trabajo y se dio cuenta por su cuenta. Los registró en `docs/bitacora-asignacion-2-apuntes.md`. Los más relevantes:
+El agente también se equivocó varias veces durante el trabajo y se dio cuenta por su cuenta. Los más relevantes:
 
 - La migración `AddPermissionRequestConcurrency` intentaba crear la columna `xmin`, que en PostgreSQL es una columna de sistema (`column name "xmin" conflicts with a system column name`). La reescribió sin DDL y lo verificó con `dotnet ef migrations has-pending-model-changes`.
 - Generó las migraciones en `Migrations/` en vez de `Persistence/Migrations/`, que es la convención del repositorio, y las volvió a generar en la carpeta correcta.
