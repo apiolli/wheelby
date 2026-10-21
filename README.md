@@ -19,6 +19,7 @@ Este documento explica, paso a paso, cómo clonar, configurar y ejecutar el back
 7. [Ejecutar el envío de correos (Worker)](#7-ejecutar-el-envío-de-correos-worker)
 8. [Prueba rápida de punta a punta](#8-prueba-rápida-de-punta-a-punta)
 9. [Cómo verificar los criterios](#9-cómo-verificar-los-criterios)
+   - [Pruebas](#pruebas)
 10. [Variables de configuración](#10-variables-de-configuración)
 11. [Ver los datos en PostgreSQL](#11-ver-los-datos-en-postgresql)
 12. [Problemas frecuentes](#12-problemas-frecuentes)
@@ -294,6 +295,22 @@ Atajos útiles para las pruebas:
   ```
 
   Solo aparecen nombres de variables y valores de ejemplo (`change_me`).
+
+---
+
+## Pruebas
+
+Las pruebas del repositorio se ejecutan con **un solo comando**, desde un clon limpio:
+
+```bash
+cd src/backend
+dotnet test
+```
+
+`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta todas las pruebas: las de dominio de `AccessControl.Test` y las de dominio de `Permissions.Test`. No levantan la API ni necesitan PostgreSQL: trabajan solo con el dominio.
+
+- La primera vez, `dotnet test` restaura los paquetes automáticamente. No hace falta instalar `dotnet-ef` ni Docker para ejecutar las pruebas.
+- Cada prueba vive en el proyecto de pruebas de su módulo, junto al código que verifica.
 
 ---
 
