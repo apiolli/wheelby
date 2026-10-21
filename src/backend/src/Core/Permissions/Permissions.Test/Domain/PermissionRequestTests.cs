@@ -63,6 +63,23 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
+    public void Aplicar_aprobada_deja_Applied()
+    {
+        // Arrange
+        var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
+        request.Approve(AdministratorId, Now);
+
+        // Act
+        request.MarkApplied(Now);
+
+        // Assert
+        Assert.Equal(PermissionRequestStatus.Applied, request.Status);
+        Assert.Equal(AdministratorId, request.ApproverId);
+        Assert.Equal(Now, request.ResolvedAt);
+        Assert.Null(request.RejectionReason);
+    }
+
+    [Fact]
     public void Resolver_propia_solicitud_es_rechazado_y_no_cambia()
     {
         // Arrange
