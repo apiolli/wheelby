@@ -60,6 +60,13 @@ public sealed class PermissionRequest : AggregateRoot<Guid>
             ResolvedAt = utcNow;
         }
 
+        if (target == PermissionRequestStatus.Rejected)
+        {
+            ApproverId = resolverId;
+            ResolvedAt = utcNow;
+            RejectionReason = rejectionReason?.Trim();
+        }
+
         Status = target;
     }
 
