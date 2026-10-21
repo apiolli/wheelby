@@ -54,6 +54,12 @@ public sealed class PermissionRequest : AggregateRoot<Guid>
         // Si la máquina rechaza, el estado no cambia.
         PermissionRequestStateMachine.Validate(this, target, actor, resolverId, utcNow, rejectionReason);
 
+        if (target == PermissionRequestStatus.Approved)
+        {
+            ApproverId = resolverId;
+            ResolvedAt = utcNow;
+        }
+
         Status = target;
     }
 
