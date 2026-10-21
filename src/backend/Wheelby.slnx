@@ -17,6 +17,7 @@
     <Project Path="src/Core/Permissions/Permissions.Contracts/Permissions.Contracts.csproj" />
     <Project Path="src/Core/Permissions/Permissions.Domain/Permissions.Domain.csproj" />
     <Project Path="src/Core/Permissions/Permissions.Infrastructure/Permissions.Infrastructure.csproj" />
+    <Project Path="src/Core/Permissions/Permissions.Test/Permissions.Test.csproj" />
   </Folder>
   <Folder Name="/Host/">
     <Project Path="src/Host/Host.WebAPI/Host.WebAPI.csproj" />
