@@ -21,8 +21,8 @@ public static class PermissionRequestStateMachine
             PermissionRequestStatus.Pending,
             PermissionRequestStatus.Approved,
             new HashSet<PermissionActor> { PermissionActor.Administrator },
-            "El administrador aprueba la solicitud.",
-            null),
+            "El administrador aprueba la solicitud y no es el solicitante.",
+            static (r, _, resolverId, _, _) => resolverId != r.RequesterId),
 
         new(
             PermissionRequestStatus.Approved,
@@ -36,7 +36,8 @@ public static class PermissionRequestStateMachine
             PermissionRequestStatus.Rejected,
             new HashSet<PermissionActor> { PermissionActor.Administrator },
             "Motivo obligatorio y un resolutor distinto del solicitante.",
-            null),
+            static (r, _, resolverId, _, reason) =>
+                !string.IsNullOrWhiteSpace(reason) && resolverId != r.RequesterId),
     ];
 
     // RF-GP-06: transición explícitamente prohibida con su motivo.
@@ -82,12 +83,18 @@ public static class PermissionRequestStateMachine
             throw new PermissionRequestTransitionNotAllowedException(
                 $"El actor {actor} no puede ejecutar la transición {from} → {target}.");
 
-        if (target == PermissionRequestStatus.Rejected && string.IsNullOrWhiteSpace(rejectionReason))
-            throw new RejectionReasonRequiredException("El motivo del rechazo es obligatorio.");
-
         if (definition.Guard is not null
             && !definition.Guard(request, actor, resolverId, utcNow, rejectionReason))
+        {
+            if (actor == PermissionActor.Administrator && resolverId == request.RequesterId)
+                throw new CannotResolveOwnPermissionRequestException(
+                    "No puedes resolver tu propia solicitud de permiso.");
+
+            if (target == PermissionRequestStatus.Rejected && string.IsNullOrWhiteSpace(rejectionReason))
+                throw new RejectionReasonRequiredException("El motivo del rechazo es obligatorio.");
+
             throw new PermissionRequestTransitionNotAllowedException(
                 $"No se cumple la condición de la transición {from} → {target}: {definition.Condition}");
+        }
     }
 }
