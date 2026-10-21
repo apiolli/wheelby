@@ -36,6 +36,9 @@ internal sealed class PermissionRequestConfiguration : IEntityTypeConfiguration<
             .IsUnique()
             .HasFilter("\"Status\" = 'Pending'");
 
+        // Token de concurrencia: la columna de sistema xmin de PostgreSQL.
+        builder.Property<uint>("xmin").IsRowVersion();
+
         builder.Ignore(r => r.DomainEvents);
     }
 }
