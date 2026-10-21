@@ -42,4 +42,27 @@ public sealed class PermissionRequest : AggregateRoot<Guid>
 
         return new PermissionRequest(Guid.NewGuid(), requesterId, permissionCode, utcNow);
     }
+
+    // Único punto que cambia Status (RD-04).
+    public void TransitionTo(
+        PermissionRequestStatus target,
+        PermissionActor actor,
+        Guid resolverId,
+        DateTime utcNow,
+        string? rejectionReason = null)
+    {
+        // Si la máquina rechaza, el estado no cambia.
+        PermissionRequestStateMachine.Validate(this, target, actor, resolverId, utcNow, rejectionReason);
+
+        Status = target;
+    }
+
+    public void Approve(Guid approverId, DateTime utcNow)
+        => TransitionTo(PermissionRequestStatus.Approved, PermissionActor.Administrator, approverId, utcNow);
+
+    public void Reject(Guid approverId, DateTime utcNow, string? rejectionReason)
+        => TransitionTo(PermissionRequestStatus.Rejected, PermissionActor.Administrator, approverId, utcNow, rejectionReason);
+
+    public void MarkApplied(DateTime utcNow)
+        => TransitionTo(PermissionRequestStatus.Applied, PermissionActor.System, Guid.Empty, utcNow);
 }
