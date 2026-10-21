@@ -29,6 +29,22 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
+    public void Aprobar_pendiente_deja_Approved_y_registra_aprobador_y_fecha()
+    {
+        // Arrange
+        var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
+
+        // Act
+        request.Approve(AdministratorId, Now);
+
+        // Assert
+        Assert.Equal(PermissionRequestStatus.Approved, request.Status);
+        Assert.Equal(AdministratorId, request.ApproverId);
+        Assert.Equal(Now, request.ResolvedAt);
+        Assert.Null(request.RejectionReason);
+    }
+
+    [Fact]
     public void Aprobar_dos_veces_es_rechazado_y_el_estado_no_cambia()
     {
         // Arrange
@@ -41,8 +57,8 @@ public sealed class PermissionRequestTests
         // Assert
         Assert.IsType<InvalidPermissionRequestTransitionException>(exception);
         Assert.Equal(PermissionRequestStatus.Approved, request.Status);
-        Assert.Null(request.ApproverId);
-        Assert.Null(request.ResolvedAt);
+        Assert.Equal(AdministratorId, request.ApproverId);
+        Assert.Equal(Now, request.ResolvedAt);
         Assert.Null(request.RejectionReason);
     }
 
