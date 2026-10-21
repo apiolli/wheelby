@@ -63,6 +63,39 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
+    public void Rechazar_con_motivo_deja_Rejected_y_registra_motivo_y_fecha()
+    {
+        // Arrange
+        var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
+
+        // Act
+        request.Reject(AdministratorId, Now, "No corresponde");
+
+        // Assert
+        Assert.Equal(PermissionRequestStatus.Rejected, request.Status);
+        Assert.Equal(AdministratorId, request.ApproverId);
+        Assert.Equal(Now, request.ResolvedAt);
+        Assert.Equal("No corresponde", request.RejectionReason);
+    }
+
+    [Fact]
+    public void Rechazar_sin_motivo_es_rechazado_y_sigue_Pending()
+    {
+        // Arrange
+        var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
+
+        // Act
+        var exception = Record.Exception(() => request.Reject(AdministratorId, Now, "   "));
+
+        // Assert
+        Assert.IsType<RejectionReasonRequiredException>(exception);
+        Assert.Equal(PermissionRequestStatus.Pending, request.Status);
+        Assert.Null(request.ApproverId);
+        Assert.Null(request.ResolvedAt);
+        Assert.Null(request.RejectionReason);
+    }
+
+    [Fact]
     public void Aplicar_rechazada_es_rechazado_y_conserva_Rejected()
     {
         // Arrange
@@ -75,8 +108,8 @@ public sealed class PermissionRequestTests
         // Assert
         Assert.IsType<InvalidPermissionRequestTransitionException>(exception);
         Assert.Equal(PermissionRequestStatus.Rejected, request.Status);
-        Assert.Null(request.ApproverId);
-        Assert.Null(request.ResolvedAt);
-        Assert.Null(request.RejectionReason);
+        Assert.Equal(AdministratorId, request.ApproverId);
+        Assert.Equal(Now, request.ResolvedAt);
+        Assert.Equal("No corresponde", request.RejectionReason);
     }
 }

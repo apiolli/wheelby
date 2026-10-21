@@ -82,6 +82,9 @@ public static class PermissionRequestStateMachine
             throw new PermissionRequestTransitionNotAllowedException(
                 $"El actor {actor} no puede ejecutar la transición {from} → {target}.");
 
+        if (target == PermissionRequestStatus.Rejected && string.IsNullOrWhiteSpace(rejectionReason))
+            throw new RejectionReasonRequiredException("El motivo del rechazo es obligatorio.");
+
         if (definition.Guard is not null
             && !definition.Guard(request, actor, resolverId, utcNow, rejectionReason))
             throw new PermissionRequestTransitionNotAllowedException(
