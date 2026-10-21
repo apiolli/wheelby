@@ -1,4 +1,5 @@
 using Permissions.Domain.PermissionRequests;
+using Permissions.Domain.PermissionRequests.Exceptions;
 
 namespace Permissions.Test.Domain;
 
@@ -22,6 +23,42 @@ public sealed class PermissionRequestTests
         Assert.Equal(RequesterId, request.RequesterId);
         Assert.Equal(permissionCode, request.PermissionCode);
         Assert.Equal(Now, request.CreatedAt);
+        Assert.Null(request.ApproverId);
+        Assert.Null(request.ResolvedAt);
+        Assert.Null(request.RejectionReason);
+    }
+
+    [Fact]
+    public void Aprobar_dos_veces_es_rechazado_y_el_estado_no_cambia()
+    {
+        // Arrange
+        var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
+        request.Approve(AdministratorId, Now);
+
+        // Act
+        var exception = Record.Exception(() => request.Approve(AdministratorId, Now));
+
+        // Assert
+        Assert.IsType<InvalidPermissionRequestTransitionException>(exception);
+        Assert.Equal(PermissionRequestStatus.Approved, request.Status);
+        Assert.Null(request.ApproverId);
+        Assert.Null(request.ResolvedAt);
+        Assert.Null(request.RejectionReason);
+    }
+
+    [Fact]
+    public void Aplicar_rechazada_es_rechazado_y_conserva_Rejected()
+    {
+        // Arrange
+        var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
+        request.Reject(AdministratorId, Now, "No corresponde");
+
+        // Act
+        var exception = Record.Exception(() => request.MarkApplied(Now));
+
+        // Assert
+        Assert.IsType<InvalidPermissionRequestTransitionException>(exception);
+        Assert.Equal(PermissionRequestStatus.Rejected, request.Status);
         Assert.Null(request.ApproverId);
         Assert.Null(request.ResolvedAt);
         Assert.Null(request.RejectionReason);
