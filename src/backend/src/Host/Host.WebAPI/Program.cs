@@ -3,6 +3,7 @@ using Shared.Application;
 using Scalar.AspNetCore;
 using AccessControl.Infrastructure;
 using Notifications.Infrastructure;
+using Permissions.Infrastructure;
 using Wheelby.Infrastructure;
 using Host.WebAPI.OpenApi;
 
@@ -25,6 +26,7 @@ builder.Services.AddCors(options =>
 // DI de cada modulo
 builder.Services.AddAccessControl(builder.Configuration);       
 builder.Services.AddNotifications(builder.Configuration);
+builder.Services.AddPermissions(builder.Configuration);
 builder.Services.AddWheelby(builder.Configuration);
 
 var app = builder.Build();
@@ -37,6 +39,7 @@ app.UseCors("FrontendPolicy");
 // Aqui lo que hago es aplicar las migraciones de cada modulo al iniciar
 await app.Services.ApplyNotificationsMigrationsAsync();
 await app.Services.ApplyAccessControlMigrationsAsync();
+await app.Services.ApplyPermissionsMigrationsAsync();
 await app.Services.ApplyWheelbyMigrationsAsync();
 await app.Services.SeedAdministratorAsync();
 
@@ -51,6 +54,7 @@ if (app.Environment.IsDevelopment())
 
 // Mapeo de endpoints
 app.MapAccessControlEndpoints();
+app.MapPermissionsEndpoints();
 
 
 app.Run();
