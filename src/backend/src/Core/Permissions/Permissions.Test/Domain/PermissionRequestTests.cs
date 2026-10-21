@@ -63,6 +63,23 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
+    public void Resolver_propia_solicitud_es_rechazado_y_no_cambia()
+    {
+        // Arrange
+        var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
+
+        // Act
+        var exception = Record.Exception(() => request.Approve(RequesterId, Now));
+
+        // Assert
+        Assert.IsType<CannotResolveOwnPermissionRequestException>(exception);
+        Assert.Equal(PermissionRequestStatus.Pending, request.Status);
+        Assert.Null(request.ApproverId);
+        Assert.Null(request.ResolvedAt);
+        Assert.Null(request.RejectionReason);
+    }
+
+    [Fact]
     public void Rechazar_con_motivo_deja_Rejected_y_registra_motivo_y_fecha()
     {
         // Arrange
