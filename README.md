@@ -2,7 +2,7 @@
 
 Marketplace de alquiler de vehículos entre particulares. Backend en C# (.NET 10), monolito modular con Clean Architecture, CQRS y DDD, sobre PostgreSQL.
 
-Programación III · ITLA · 2026-C-3 · Práctica 1
+Programación III · ITLA · 2026-C-3 · Asignación 2
 
 Este documento explica, paso a paso, cómo clonar, configurar y ejecutar el backend. Para comprobar cada criterio de aceptación, ver la sección [Cómo verificar los criterios](#9-cómo-verificar-los-criterios).
 
@@ -49,7 +49,7 @@ Los comandos de este documento están escritos para **PowerShell (Windows)**. Do
 ```bash
 git clone <URL del repositorio>
 cd <carpeta del repositorio>
-git checkout practica-1
+git checkout asignacion-2
 ```
 
 ---
@@ -191,7 +191,7 @@ dotnet run --project src/Host/Host.WebAPI
 
 Al arrancar, la API:
 
-1. crea o actualiza las tablas de los tres módulos (esquemas `access_control`, `notifications` y `wheelby`);
+1. crea o actualiza las tablas de los cuatro módulos (esquemas `access_control`, `notifications`, `permissions` y `wheelby`);
 2. crea el Administrador con `Admin:Email` y `Admin:Password` si no existe (y lo restaura si perdió el rol o fue desactivado, sin tocar su contraseña).
 
 La consola muestra la dirección, normalmente:
@@ -259,8 +259,8 @@ Con la API corriendo, en Scalar (`http://localhost:5299/scalar/v1`):
 
 ## 9. Cómo verificar los criterios
 
-- **Control de acceso y correo por cola** (RF-CA-01 a 22, RF-NOT-08, 09, 12, 13): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/control-de-acceso/README.md](docs/control-acceso/README.md).
-- **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquina-de-estados.md](docs/maquina-de-estados.md).
+- **Control de acceso y correo por cola** (RF-CA-01 a 22, RF-NOT-08, 09, 12, 13): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/control-acceso/README.md](docs/control-acceso/README.md).
+- **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquita-de-estados/README.md](docs/maquita-de-estados/README.md).
 - **Gestión de permisos** (RF-GP-01 a 07, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/gestion-permisos/README.md](docs/gestion-permisos/README.md).
 
 Atajos útiles para las pruebas:
@@ -308,7 +308,7 @@ cd src/backend
 dotnet test
 ```
 
-`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta todas las pruebas: las de dominio de `AccessControl.Test` y las de dominio de `Permissions.Test`. No levantan la API ni necesitan PostgreSQL: trabajan solo con el dominio.
+`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta las pruebas de dominio de `Permissions.Test` (8 pruebas). No levantan la API ni necesitan PostgreSQL: trabajan solo con el dominio.
 
 - La primera vez, `dotnet test` restaura los paquetes automáticamente. No hace falta instalar `dotnet-ef` ni Docker para ejecutar las pruebas.
 - Cada prueba vive en el proyecto de pruebas de su módulo, junto al código que verifica.
@@ -364,6 +364,8 @@ Cada módulo tiene su propio esquema. Los nombres de tabla llevan **comillas dob
 SELECT * FROM access_control."Users";
 SELECT * FROM access_control."Sessions";
 SELECT * FROM notifications."QueuedEmails";
+SELECT * FROM permissions."PermissionRequests";
+SELECT * FROM permissions."PermissionGrants";
 SELECT * FROM wheelby."Reservations";
 ```
 
@@ -392,8 +394,10 @@ SELECT * FROM wheelby."Reservations";
 ```
 <raíz del repositorio>/
 ├─ docs/
-│  ├─ maquina-de-estados.md          Máquina de estados de la Reserva
-│  └─ control-de-acceso/README.md    Cómo verificar cada criterio de Control de acceso
+│  ├─ maquita-de-estados/README.md   Máquinas de estados de la Reserva y de los Permisos
+│  ├─ control-acceso/README.md       Cómo verificar cada criterio de Control de acceso
+│  ├─ gestion-permisos/README.md     Cómo verificar cada criterio de Gestión de permisos
+│  └─ bitacora-asignacion-2.md       Bitácora de la sesión con el agente
 └─ src/
    └─ backend/                       ← carpeta de trabajo (sección 3)
       ├─ Wheelby.slnx
@@ -406,7 +410,8 @@ SELECT * FROM wheelby."Reservations";
          ├─ Shared/                  SharedKernel y Shared.Application
          ├─ Core/
          │  ├─ AccessControl/        Control de acceso
-         │  └─ Notifications/        Cola de correos
+         │  ├─ Notifications/        Cola de correos
+         │  └─ Permissions/          Gestión de permisos (incluye Permissions.Test)
          └─ Domain/
             └─ Wheelby/              Módulo de negocio (Reserva y su máquina de estados)
 ```

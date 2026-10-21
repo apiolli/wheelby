@@ -18,7 +18,7 @@ Solicitud de permisos, aprobación o rechazo por parte de un Administrador, conc
 ## Requisitos previos
 
 - .NET SDK 10 y Docker Desktop.
-- Todos los comandos se ejecutan desde la carpeta `backend` (la que contiene `Wheelby.slnx`).
+- Todos los comandos se ejecutan desde la carpeta `src/backend` (la que contiene `Wheelby.slnx`).
 - La base de datos y los secretos se preparan siguiendo el README principal (PostgreSQL con Docker Compose y `dotnet user-secrets`).
 - Al arrancar, la API aplica también las migraciones del módulo Permissions (esquema `permissions`).
 
@@ -27,7 +27,7 @@ Solicitud de permisos, aprobación o rechazo por parte de un Administrador, conc
 | Persona | Cómo obtenerla |
 | ------- | -------------- |
 | **Administrador** | `POST /auth/login` con `Admin__Email` y `Admin__Password` (los secretos de la API). Su token se llama **token de Administrador**. |
-| **Usuario Estándar** | Registrarse en `POST /auth/register`, activar el correo (o usar el Administrador para crear el activo) y hacer `POST /auth/login`. Su token se llama **token de Estándar**. |
+| **Usuario Estándar** | Registrarse en `POST /auth/register`, activar la cuenta con el enlace del correo (o leerlo sin esperar el correo con `SELECT "Body" FROM notifications."QueuedEmails" ORDER BY "CreatedAt" DESC;`) y hacer `POST /auth/login`. Su token se llama **token de Estándar**. |
 
 Un Administrador **no** tiene concesiones automáticas: para usar `POST /permissions/demo-action` necesita que le aprueben el permiso.
 
