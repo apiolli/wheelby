@@ -107,4 +107,42 @@ public sealed class PermissionRequestStateMachineTests
         Assert.Equal(esperado.Resuelta, solicitud.ResolvedAt);
         Assert.Equal(esperado.Motivo, solicitud.RejectionReason);
     }
+
+    [Fact]
+    public void RF_GP_06_Tabla_de_transiciones_declarada_es_exacta()
+    {
+        // Arrange
+        // Conjunto legal escrito a mano, copiado de la tabla del requisito.
+        var legales = new HashSet<(PermissionRequestStatus, PermissionRequestStatus)>
+        {
+            (PermissionRequestStatus.Pending, PermissionRequestStatus.Approved),
+            (PermissionRequestStatus.Approved, PermissionRequestStatus.Applied),
+            (PermissionRequestStatus.Pending, PermissionRequestStatus.Rejected),
+        };
+
+        // Act
+        var declarada = PermissionRequestStateMachine.AllowedTransitions
+            .Select(t => (t.From, t.To))
+            .ToHashSet();
+        var prohibida = (
+            PermissionRequestStateMachine.ExplicitlyForbidden.From,
+            PermissionRequestStateMachine.ExplicitlyForbidden.To);
+        var terminales = new HashSet<PermissionRequestStatus>
+        {
+            PermissionRequestStatus.Applied,
+            PermissionRequestStatus.Rejected,
+        };
+
+        // Assert
+        // Ni más ni menos: exactamente los tres pares del requisito.
+        Assert.True(legales.SetEquals(declarada));
+        Assert.Equal(3, PermissionRequestStateMachine.AllowedTransitions.Count);
+        // La prohibida explícita no es legal y su par es el documentado.
+        Assert.DoesNotContain(declarada, par => par == prohibida);
+        Assert.Equal(
+            (PermissionRequestStatus.Rejected, PermissionRequestStatus.Applied),
+            prohibida);
+        // Solo quedan dos terminales y ninguna transición parte de ellos.
+        Assert.True(terminales.SetEquals(PermissionRequestStateMachine.TerminalStates));
+    }
 }
