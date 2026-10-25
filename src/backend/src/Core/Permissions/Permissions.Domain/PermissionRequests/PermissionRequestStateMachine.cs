@@ -38,6 +38,13 @@ public static class PermissionRequestStateMachine
             "Motivo obligatorio y un resolutor distinto del solicitante.",
             static (r, _, resolverId, _, reason) =>
                 !string.IsNullOrWhiteSpace(reason) && resolverId != r.RequesterId),
+
+        new(
+            PermissionRequestStatus.Rejected,
+            PermissionRequestStatus.Applied,
+            new HashSet<PermissionActor> { PermissionActor.System },
+            "La aplicación es automática, en la misma operación que la aprobación.",
+            null),
     ];
 
     // RF-GP-06: transición explícitamente prohibida con su motivo.
@@ -66,13 +73,9 @@ public static class PermissionRequestStateMachine
 
         var from = request.Status;
 
-        if (TerminalStates.Contains(from))
+        if (TerminalStates.Contains(from) && target != PermissionRequestStatus.Applied)
             throw new InvalidPermissionRequestTransitionException(
                 $"La solicitud en estado {from} es terminal y no admite más transiciones.");
-
-        if (from == ExplicitlyForbidden.From && target == ExplicitlyForbidden.To)
-            throw new InvalidPermissionRequestTransitionException(
-                $"Transición {from} → {target} prohibida: {ExplicitlyForbidden.Reason}");
 
         var definition = AllowedTransitions.FirstOrDefault(t => t.From == from && t.To == target);
         if (definition is null)
