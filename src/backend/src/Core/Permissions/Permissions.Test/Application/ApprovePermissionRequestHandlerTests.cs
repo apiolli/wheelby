@@ -168,4 +168,30 @@ public sealed class ApprovePermissionRequestHandlerTests
         Assert.Empty(grants.Grants);
         Assert.Equal(0, unitOfWork.SaveCount);
     }
+
+    [Fact]
+    public async Task RF_GP_07_Aprobar_la_propia_resuelta_prioriza_403()
+    {
+        // Arrange
+        var solicitud = PermissionRequest.Create(SolicitanteId, PermissionCodes.DemoAction, Ahora);
+        solicitud.Approve(AdministradorId, Despues);
+        solicitud.MarkApplied(Despues);
+        var requests = new FakePermissionRequestRepository(solicitud);
+        var grants = new FakePermissionGrantRepository();
+        var unitOfWork = new RecordingUnitOfWork();
+        var handler = CambiaCon(
+            requests, grants, unitOfWork,
+            new FixedCurrentUser(SolicitanteId), new FixedClock(MasTarde));
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => handler.Handle(new ApprovePermissionRequestCommand(solicitud.Id), default));
+
+        // Assert
+        // Aun resuelta, la propia gana 403 antes de llegar al 409 de estado.
+        Assert.IsType<CannotResolveOwnPermissionRequestException>(exception);
+        Assert.Equal(PermissionRequestStatus.Applied, solicitud.Status);
+        Assert.Empty(grants.Grants);
+        Assert.Equal(0, unitOfWork.SaveCount);
+    }
 }
