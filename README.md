@@ -20,6 +20,7 @@ Este documento explica, paso a paso, cómo clonar, configurar y ejecutar el back
 8. [Prueba rápida de punta a punta](#8-prueba-rápida-de-punta-a-punta)
 9. [Cómo verificar los criterios](#9-cómo-verificar-los-criterios)
    - [Pruebas](#pruebas)
+   - [Defectos](#defectos)
 10. [Variables de configuración](#10-variables-de-configuración)
 11. [Ver los datos en PostgreSQL](#11-ver-los-datos-en-postgresql)
 12. [Problemas frecuentes](#12-problemas-frecuentes)
@@ -254,6 +255,9 @@ Con la API corriendo, en Scalar (`http://localhost:5299/scalar/v1`):
 5. **Iniciar sesión:** `POST /auth/login` → 200 con `accessToken`.
 6. **Autenticarse en Scalar:** copiar el `accessToken` y pegarlo en el botón de autorización (esquema Bearer). Luego `GET /auth/me` → 200 con el usuario y su rol.
 7. **Administrador:** `POST /auth/login` con `Admin:Email` y `Admin:Password`, autenticarse con ese token y probar `GET /admin/users`.
+8. **403 con un Estándar:** con el token del usuario registrado (rol `Standard`), llamar a mano `GET /admin/users` → 403 "No tienes permiso para realizar esta operación." Sin token → 401.
+9. **Recuperación de contraseña:** `POST /auth/forgot-password` con el correo del usuario → 200. Ejecutar el Worker, leer el código del correo y llamar `POST /auth/reset-password` con `newPassword` → 200. La contraseña anterior ya no entra (401) y la nueva sí (200).
+10. **Cerrar sesión:** `POST /auth/logout` con el token → 204. Reutilizar ese mismo token en `GET /auth/me` → 401.
 
 ---
 
@@ -308,10 +312,36 @@ cd src/backend
 dotnet test
 ```
 
-`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta las pruebas de dominio de `Permissions.Test` (8 pruebas). No levantan la API ni necesitan PostgreSQL: trabajan solo con el dominio.
+`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta las **71 pruebas** de `Permissions.Test`. No levantan la API ni necesitan PostgreSQL ni Docker.
 
+- **Dominio:** reglas de `PermissionRequest` y la matriz completa de transiciones de `PermissionRequestStateMachine` (32 combinaciones de origen, destino y actor, más la tabla declarada exacta).
+- **Casos de uso:** los handlers de crear, listar, aprobar y rechazar se prueban con dobles de sus puertos: reloj fijo, usuario actual fijo, catálogo fijo, repositorios en memoria y unidad de trabajo que cuenta los guardados. Cada prueba crea sus propios dobles, sin estado compartido.
+- **Infraestructura:** `PermissionRequestReadStore` y `PermissionChecker` se prueban sobre `PermissionsDbContext` con EF InMemory, con un nombre de base único por prueba.
+- Todas usan fechas fijas, siguen Arrange/Act/Assert, verifican un solo comportamiento y llevan el ID del requisito en el nombre (`RF_GP_0X_...`).
 - La primera vez, `dotnet test` restaura los paquetes automáticamente. No hace falta instalar `dotnet-ef` ni Docker para ejecutar las pruebas.
 - Cada prueba vive en el proyecto de pruebas de su módulo, junto al código que verifica.
+
+---
+
+## Defectos
+
+La suite está preparada para detectar seis defectos sembrados a propósito. Cada etiqueta `practica-2-defecto-N` cuelga de `practica-2` y contiene un solo commit que modifica únicamente código de producción: las pruebas nunca se tocan. Las líneas son las de `practica-2`.
+
+| Etiqueta | Requisito | Archivo y línea | Defecto sembrado | Pruebas que lo detectan |
+|---|---|---|---|---|
+| `practica-2-defecto-1` | RF-GP-06 | `PermissionRequestStateMachine.cs`, `Validate` (líneas 69 y 77) | Para el destino `Approved` acepta cualquier origen distinto de `Rejected`: una solicitud ya aprobada o aplicada se puede volver a aprobar | `RF_GP_06_Aprobar_una_solicitud_Applied_es_rechazado`, `RF_GP_06_Aprobar_dos_veces_no_crea_segunda_concesion`, `RF_GP_06_Aprobar_dos_veces_es_rechazado_y_el_estado_no_cambia` y la matriz de transiciones |
+| `practica-2-defecto-2` | RF-GP-06 | `PermissionRequestStateMachine.cs`, `AllowedTransitions` y `Validate` | Agrega `Rejected → Applied` y la hace alcanzable | `RF_GP_06_Aplicar_una_rechazada_es_rechazado_y_conserva_Rejected`, `RF_GP_06_Tabla_de_transiciones_declarada_es_exacta` y la matriz |
+| `practica-2-defecto-3` | RF-GP-07 | Handlers de aprobar (línea 26) y rechazar (línea 24); guardas de la tabla (líneas 25 y 39-40) | Elimina la comprobación de autorresolución en sus cuatro copias | `RF_GP_07_Aprobar_la_propia_solicitud_es_rechazado`, `RF_GP_07_Rechazar_la_propia_solicitud_es_rechazado` y las dos pruebas de precedencia `..._prioriza_403` |
+| `practica-2-defecto-4` | RF-GP-02 | `PermissionRequestReadStore.cs`, línea 31 | Invierte el filtro: `RequesterId == requesterId` pasa a `!=` | `RF_GP_02_Las_solicitudes_de_una_persona_excluyen_a_los_demas` |
+| `practica-2-defecto-5` | RF-GP-06 | `PermissionRequestStateMachine.cs`, `AllowedTransitions` | Agrega `Approved → Pending` (actor `Administrator`, sin guarda) | `RF_GP_06_Tabla_de_transiciones_declarada_es_exacta` y la matriz |
+| `practica-2-defecto-6` | RF-GP-04 | `PermissionRequest.cs`, línea 67 | Deja de guardar el motivo: borra `RejectionReason = rejectionReason?.Trim();` | `RF_GP_04_Rechazar_con_motivo_guarda_motivo_recortado`, `RF_GP_04_Rechazar_guarda_un_motivo_recortado` y las pruebas de rechazo |
+
+Cada defecto compila y hace fallar al menos una prueba. Se comprueba sobre cada etiqueta:
+
+```bash
+cd src/backend
+dotnet test
+```
 
 ---
 

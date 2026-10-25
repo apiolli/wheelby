@@ -202,7 +202,7 @@ Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` 
 
   Rechazar y luego intentar aprobar la misma solicitud → **409**, y el estado sigue siendo `Rejected`.
 
-  **Aclaración:** la transición `Rejected → Applied` **no se puede provocar por HTTP**. La aplicación es automática y ocurre dentro de la misma operación que aprueba (no hay ruta que la aplique por separado), y una solicitud rechazada ni siquiera llega a `Approved`. Esa transición exacta —y el hecho de que el estado no cambie— la cubre la prueba unitaria `Aplicar_rechazada_es_rechazado_y_conserva_Rejected` del proyecto `Permissions.Test`.
+  **Aclaración:** la transición `Rejected → Applied` **no se puede provocar por HTTP**. La aplicación es automática y ocurre dentro de la misma operación que aprueba (no hay ruta que la aplique por separado), y una solicitud rechazada ni siquiera llega a `Approved`. Esa transición exacta —y el hecho de que el estado no cambie— la cubre la prueba unitaria `RF_GP_06_Aplicar_una_rechazada_es_rechazado_y_conserva_Rejected` del proyecto `Permissions.Test`.
 
 ### Resolver la propia solicitud
 
@@ -240,12 +240,14 @@ Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` 
 
 ## Pruebas automáticas
 
-Las pruebas del dominio están en `src/backend/src/Core/Permissions/Permissions.Test/` y se ejecutan sin levantar la API:
+Las 71 pruebas de `Permissions.Test` están en `src/backend/src/Core/Permissions/Permissions.Test/` y se ejecutan sin levantar la API ni PostgreSQL:
 
 ```bash
 cd src/backend
 dotnet test
 ```
+
+Cubren el dominio (reglas y matriz completa de transiciones), los casos de uso (handlers con dobles de sus puertos) e infraestructura (`PermissionRequestReadStore` y `PermissionChecker` sobre EF InMemory). Cada prueba lleva el ID del requisito en el nombre (`RF_GP_0X_...`) y el README principal enumera los defectos que la suite detecta.
 
 ## Notas de diseño que afectan a la verificación
 

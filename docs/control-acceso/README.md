@@ -354,12 +354,10 @@ Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/rol
 
 ### Estructura de la máquina de estados de negocio
 
-Estado: **pendiente**.
-
-- [ ] **RF-NEG-03 / RD-04** — Ubicar en el código el punto único donde están declarados los estados (entre 3 y 5) y las transiciones permitidas. _(ruta por definir)_
-- [ ] **RF-NEG-04** — Confirmar la transición explícitamente prohibida documentada.
-- [ ] **RF-NEG-05** — Confirmar el estado terminal documentado.
-- [ ] Tabla de transiciones en [`../maquina-de-estados.md`](../maquina-de-estados.md).
+- [x] **RF-NEG-03 / RD-04** — Los estados y las transiciones de la reserva están declarados en un solo lugar: `src/backend/src/Domain/Wheelby/Wheelby.Domain/Reservations/ReservationStatus.cs` y `ReservationStateMachine.AllowedTransitions`. `Reservation.TransitionTo` es el único código que cambia `Status`.
+- [x] **RF-NEG-04** — La transición explícitamente prohibida (`InProgress → Cancelled`, con su motivo) está en `ReservationStateMachine.ExplicitlyForbidden` y se rechaza con 409.
+- [x] **RF-NEG-05** — Los estados terminales (`Completed` y `Cancelled`) están en `ReservationStateMachine.TerminalStates`; ninguna transición parte de ellos.
+- [x] Tabla de transiciones, diagrama y notas en [`../maquita-de-estados/README.md`](../maquita-de-estados/README.md).
 
 ### Persistencia
 
