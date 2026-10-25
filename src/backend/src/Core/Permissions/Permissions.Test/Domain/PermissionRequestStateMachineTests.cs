@@ -1,4 +1,5 @@
 using Permissions.Domain.PermissionRequests;
+using Permissions.Domain.PermissionRequests.Exceptions;
 using SharedKernel.Exceptions;
 
 namespace Permissions.Test.Domain;
@@ -144,5 +145,43 @@ public sealed class PermissionRequestStateMachineTests
             prohibida);
         // Solo quedan dos terminales y ninguna transición parte de ellos.
         Assert.True(terminales.SetEquals(PermissionRequestStateMachine.TerminalStates));
+    }
+
+    [Fact]
+    public void RF_GP_06_Aprobar_una_solicitud_Applied_es_rechazado()
+    {
+        // Arrange
+        var solicitud = SolicitudEn(PermissionRequestStatus.Applied);
+
+        // Act
+        var exception = Record.Exception(
+            () => solicitud.Approve(AdministradorId, MasTarde));
+
+        // Assert
+        Assert.IsType<InvalidPermissionRequestTransitionException>(exception);
+        var esperado = DatosEsperadosDe(PermissionRequestStatus.Applied);
+        Assert.Equal(esperado.Estado, solicitud.Status);
+        Assert.Equal(esperado.Aprobador, solicitud.ApproverId);
+        Assert.Equal(esperado.Resuelta, solicitud.ResolvedAt);
+        Assert.Equal(esperado.Motivo, solicitud.RejectionReason);
+    }
+
+    [Fact]
+    public void RF_GP_06_Aprobar_una_rechazada_es_rechazado()
+    {
+        // Arrange
+        var solicitud = SolicitudEn(PermissionRequestStatus.Rejected);
+
+        // Act
+        var exception = Record.Exception(
+            () => solicitud.Approve(AdministradorId, MasTarde));
+
+        // Assert
+        Assert.IsType<InvalidPermissionRequestTransitionException>(exception);
+        var esperado = DatosEsperadosDe(PermissionRequestStatus.Rejected);
+        Assert.Equal(esperado.Estado, solicitud.Status);
+        Assert.Equal(esperado.Aprobador, solicitud.ApproverId);
+        Assert.Equal(esperado.Resuelta, solicitud.ResolvedAt);
+        Assert.Equal(esperado.Motivo, solicitud.RejectionReason);
     }
 }
