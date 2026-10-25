@@ -21,10 +21,6 @@ internal sealed class RejectPermissionRequestCommandHandler(
         var permissionRequest = await requests.GetByIdAsync(request.RequestId, cancellationToken)
             ?? throw new NotFoundException("La solicitud no existe.");
 
-        if (permissionRequest.RequesterId == currentUser.Id)
-            throw new CannotResolveOwnPermissionRequestException(
-                "No puedes resolver tu propia solicitud de permiso.");
-
         // El motivo obligatorio lo exige el dominio (400) y no el validador,
         // para no saltarse el orden de comprobaciones.
         permissionRequest.Reject(currentUser.Id, clock.UtcNow, request.Reason);

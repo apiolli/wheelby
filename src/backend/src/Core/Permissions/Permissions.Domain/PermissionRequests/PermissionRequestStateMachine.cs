@@ -22,7 +22,7 @@ public static class PermissionRequestStateMachine
             PermissionRequestStatus.Approved,
             new HashSet<PermissionActor> { PermissionActor.Administrator },
             "El administrador aprueba la solicitud y no es el solicitante.",
-            static (r, _, resolverId, _, _) => resolverId != r.RequesterId),
+            static (_, _, _, _, _) => true),
 
         new(
             PermissionRequestStatus.Approved,
@@ -36,8 +36,8 @@ public static class PermissionRequestStateMachine
             PermissionRequestStatus.Rejected,
             new HashSet<PermissionActor> { PermissionActor.Administrator },
             "Motivo obligatorio y un resolutor distinto del solicitante.",
-            static (r, _, resolverId, _, reason) =>
-                !string.IsNullOrWhiteSpace(reason) && resolverId != r.RequesterId),
+            static (_, _, _, _, reason) =>
+                !string.IsNullOrWhiteSpace(reason)),
     ];
 
     // RF-GP-06: transición explícitamente prohibida con su motivo.

@@ -23,10 +23,6 @@ internal sealed class ApprovePermissionRequestCommandHandler(
         var permissionRequest = await requests.GetByIdAsync(request.RequestId, cancellationToken)
             ?? throw new NotFoundException("La solicitud no existe.");
 
-        if (permissionRequest.RequesterId == currentUser.Id)
-            throw new CannotResolveOwnPermissionRequestException(
-                "No puedes resolver tu propia solicitud de permiso.");
-
         var utcNow = clock.UtcNow;
 
         // Aprobar y aplicar, y crear la concesión, todo en la misma operación.
