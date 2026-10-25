@@ -98,6 +98,24 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
+    public void RF_GP_07_Rechazar_la_propia_solicitud_es_rechazado()
+    {
+        // Arrange
+        var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
+
+        // Act
+        var exception = Record.Exception(
+            () => request.Reject(RequesterId, Later, "Mi propio motivo"));
+
+        // Assert
+        Assert.IsType<CannotResolveOwnPermissionRequestException>(exception);
+        Assert.Equal(PermissionRequestStatus.Pending, request.Status);
+        Assert.Null(request.ApproverId);
+        Assert.Null(request.ResolvedAt);
+        Assert.Null(request.RejectionReason);
+    }
+
+    [Fact]
     public void RF_GP_04_Rechazar_con_motivo_guarda_motivo_recortado()
     {
         // Arrange
