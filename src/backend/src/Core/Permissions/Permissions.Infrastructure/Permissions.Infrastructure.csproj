@@ -27,4 +27,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- RD-12: permite al proyecto de pruebas usar el DbContext y las clases internas. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Permissions.Test" />
+  </ItemGroup>
+
 </Project>
