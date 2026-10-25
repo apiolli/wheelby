@@ -28,7 +28,7 @@ internal sealed class PermissionRequestReadStore(PermissionsDbContext db) : IPer
     {
         var query = db.PermissionRequests
             .AsNoTracking()
-            .Where(r => r.RequesterId == requesterId);
+            .Where(r => r.RequesterId != requesterId);
 
         return ToPageAsync(query, page, pageSize, cancellationToken);
     }
