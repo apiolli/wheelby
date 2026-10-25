@@ -35,6 +35,26 @@ public sealed class ApprovePermissionRequestHandlerTests
         Assert.NotEqual(Ahora, solicitud.ResolvedAt);
     }
 
+    [Fact]
+    public async Task RF_GP_05_Aprobar_deja_la_solicitud_en_Applied()
+    {
+        // Arrange
+        var solicitud = PermissionRequest.Create(SolicitanteId, PermissionCodes.DemoAction, Ahora);
+        var requests = new FakePermissionRequestRepository(solicitud);
+        var grants = new FakePermissionGrantRepository();
+        var unitOfWork = new RecordingUnitOfWork();
+        var handler = CambiaCon(
+            requests, grants, unitOfWork,
+            new FixedCurrentUser(AdministradorId), new FixedClock(Despues));
+
+        // Act
+        await handler.Handle(new ApprovePermissionRequestCommand(solicitud.Id), default);
+
+        // Assert
+        Assert.Equal(PermissionRequestStatus.Applied, solicitud.Status);
+        Assert.Equal(1, unitOfWork.SaveCount);
+    }
+
     private static ApprovePermissionRequestCommandHandler CambiaCon(
         FakePermissionRequestRepository requests,
         FakePermissionGrantRepository grants,
