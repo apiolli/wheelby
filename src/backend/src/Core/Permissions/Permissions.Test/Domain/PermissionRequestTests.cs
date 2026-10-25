@@ -113,14 +113,17 @@ public sealed class PermissionRequestTests
         Assert.Equal("No corresponde", request.RejectionReason);
     }
 
-    [Fact]
-    public void RF_GP_04_Rechazar_con_motivo_ausente_no_cambia_la_solicitud()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void RF_GP_04_Rechazar_con_motivo_ausente_no_cambia_la_solicitud(string? motivo)
     {
         // Arrange
         var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
 
         // Act
-        var exception = Record.Exception(() => request.Reject(AdministratorId, Now, "   "));
+        var exception = Record.Exception(() => request.Reject(AdministratorId, Later, motivo));
 
         // Assert
         Assert.IsType<RejectionReasonRequiredException>(exception);
