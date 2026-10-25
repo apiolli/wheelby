@@ -55,6 +55,30 @@ public sealed class ApprovePermissionRequestHandlerTests
         Assert.Equal(1, unitOfWork.SaveCount);
     }
 
+    [Fact]
+    public async Task RF_GP_05_Aprobar_crea_la_concesion_del_solicitante()
+    {
+        // Arrange
+        var solicitud = PermissionRequest.Create(SolicitanteId, PermissionCodes.DemoAction, Ahora);
+        var requests = new FakePermissionRequestRepository(solicitud);
+        var grants = new FakePermissionGrantRepository();
+        var unitOfWork = new RecordingUnitOfWork();
+        var handler = CambiaCon(
+            requests, grants, unitOfWork,
+            new FixedCurrentUser(AdministradorId), new FixedClock(Despues));
+
+        // Act
+        await handler.Handle(new ApprovePermissionRequestCommand(solicitud.Id), default);
+
+        // Assert
+        var concesion = Assert.Single(grants.Grants);
+        Assert.Equal(SolicitanteId, concesion.UserId);
+        Assert.NotEqual(AdministradorId, concesion.UserId);
+        Assert.Equal(PermissionCodes.DemoAction, concesion.PermissionCode);
+        Assert.Equal(solicitud.Id, concesion.RequestId);
+        Assert.Equal(Despues, concesion.GrantedAt);
+    }
+
     private static ApprovePermissionRequestCommandHandler CambiaCon(
         FakePermissionRequestRepository requests,
         FakePermissionGrantRepository grants,
