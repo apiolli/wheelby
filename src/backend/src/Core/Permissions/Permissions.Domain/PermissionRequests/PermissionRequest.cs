@@ -64,7 +64,6 @@ public sealed class PermissionRequest : AggregateRoot<Guid>
         {
             ApproverId = resolverId;
             ResolvedAt = utcNow;
-            RejectionReason = rejectionReason?.Trim();
         }
 
         Status = target;
