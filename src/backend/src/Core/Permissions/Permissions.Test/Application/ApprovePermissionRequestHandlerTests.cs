@@ -143,4 +143,29 @@ public sealed class ApprovePermissionRequestHandlerTests
         FixedCurrentUser currentUser,
         FixedClock clock)
         => new(requests, grants, unitOfWork, currentUser, clock);
+
+    [Fact]
+    public async Task RF_GP_07_Aprobar_la_propia_solicitud_es_rechazado()
+    {
+        // Arrange
+        var solicitud = PermissionRequest.Create(SolicitanteId, PermissionCodes.DemoAction, Ahora);
+        var requests = new FakePermissionRequestRepository(solicitud);
+        var grants = new FakePermissionGrantRepository();
+        var unitOfWork = new RecordingUnitOfWork();
+        var handler = CambiaCon(
+            requests, grants, unitOfWork,
+            new FixedCurrentUser(SolicitanteId), new FixedClock(Despues));
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => handler.Handle(new ApprovePermissionRequestCommand(solicitud.Id), default));
+
+        // Assert
+        Assert.IsType<CannotResolveOwnPermissionRequestException>(exception);
+        Assert.Equal(PermissionRequestStatus.Pending, solicitud.Status);
+        Assert.Null(solicitud.ApproverId);
+        Assert.Null(solicitud.ResolvedAt);
+        Assert.Empty(grants.Grants);
+        Assert.Equal(0, unitOfWork.SaveCount);
+    }
 }

@@ -68,6 +68,30 @@ public sealed class RejectPermissionRequestHandlerTests
     }
 
     [Fact]
+    public async Task RF_GP_07_Rechazar_la_propia_solicitud_es_rechazado()
+    {
+        // Arrange
+        var solicitud = PermissionRequest.Create(SolicitanteId, PermissionCodes.DemoAction, Ahora);
+        var requests = new FakePermissionRequestRepository(solicitud);
+        var unitOfWork = new RecordingUnitOfWork();
+        var handler = new RejectPermissionRequestCommandHandler(
+            requests, unitOfWork, new FixedCurrentUser(SolicitanteId), new FixedClock(Despues));
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => handler.Handle(
+                new RejectPermissionRequestCommand(solicitud.Id, "Mi propio motivo"), default));
+
+        // Assert
+        Assert.IsType<CannotResolveOwnPermissionRequestException>(exception);
+        Assert.Equal(PermissionRequestStatus.Pending, solicitud.Status);
+        Assert.Null(solicitud.ApproverId);
+        Assert.Null(solicitud.ResolvedAt);
+        Assert.Null(solicitud.RejectionReason);
+        Assert.Equal(0, unitOfWork.SaveCount);
+    }
+
+    [Fact]
     public async Task RF_GP_06_Rechazar_una_aprobada_es_rechazado()
     {
         // Arrange
