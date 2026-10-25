@@ -6,6 +6,7 @@ namespace Permissions.Test.Domain;
 public sealed class PermissionRequestTests
 {
     private static readonly DateTime Now = new(2026, 10, 20, 12, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime Later = Now.AddMinutes(5);
     private static readonly Guid RequesterId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid AdministratorId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
@@ -35,12 +36,12 @@ public sealed class PermissionRequestTests
         var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
 
         // Act
-        request.Approve(AdministratorId, Now);
+        request.Approve(AdministratorId, Later);
 
         // Assert
         Assert.Equal(PermissionRequestStatus.Approved, request.Status);
         Assert.Equal(AdministratorId, request.ApproverId);
-        Assert.Equal(Now, request.ResolvedAt);
+        Assert.Equal(Later, request.ResolvedAt);
         Assert.Null(request.RejectionReason);
     }
 
