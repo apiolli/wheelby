@@ -66,7 +66,7 @@ public static class PermissionRequestStateMachine
 
         var from = request.Status;
 
-        if (TerminalStates.Contains(from))
+        if (TerminalStates.Contains(from) && target != PermissionRequestStatus.Approved)
             throw new InvalidPermissionRequestTransitionException(
                 $"La solicitud en estado {from} es terminal y no admite más transiciones.");
 
@@ -75,6 +75,11 @@ public static class PermissionRequestStateMachine
                 $"Transición {from} → {target} prohibida: {ExplicitlyForbidden.Reason}");
 
         var definition = AllowedTransitions.FirstOrDefault(t => t.From == from && t.To == target);
+        if (definition is null && target == PermissionRequestStatus.Approved
+            && from != PermissionRequestStatus.Rejected)
+        {
+            definition = AllowedTransitions.First(t => t.To == PermissionRequestStatus.Approved);
+        }
         if (definition is null)
             throw new InvalidPermissionRequestTransitionException(
                 $"Transición {from} → {target} no permitida.");
