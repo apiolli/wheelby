@@ -66,4 +66,76 @@ public sealed class RejectPermissionRequestHandlerTests
         Assert.Null(solicitud.RejectionReason);
         Assert.Equal(0, unitOfWork.SaveCount);
     }
+
+    [Fact]
+    public async Task RF_GP_06_Rechazar_una_aprobada_es_rechazado()
+    {
+        // Arrange
+        var solicitud = PermissionRequest.Create(SolicitanteId, PermissionCodes.DemoAction, Ahora);
+        solicitud.Approve(AdministradorId, Despues);
+        var requests = new FakePermissionRequestRepository(solicitud);
+        var unitOfWork = new RecordingUnitOfWork();
+        var handler = ConDobles(requests, unitOfWork, AccessControlRoles.Administrator);
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => handler.Handle(
+                new RejectPermissionRequestCommand(solicitud.Id, "No corresponde"), default));
+
+        // Assert
+        Assert.IsType<InvalidPermissionRequestTransitionException>(exception);
+        Assert.Equal(PermissionRequestStatus.Approved, solicitud.Status);
+        Assert.Equal(AdministradorId, solicitud.ApproverId);
+        Assert.Equal(Despues, solicitud.ResolvedAt);
+        Assert.Null(solicitud.RejectionReason);
+        Assert.Equal(0, unitOfWork.SaveCount);
+    }
+
+    [Fact]
+    public async Task RF_GP_06_Rechazar_una_aplicada_es_rechazado()
+    {
+        // Arrange
+        var solicitud = PermissionRequest.Create(SolicitanteId, PermissionCodes.DemoAction, Ahora);
+        solicitud.Approve(AdministradorId, Despues);
+        solicitud.MarkApplied(Despues);
+        var requests = new FakePermissionRequestRepository(solicitud);
+        var unitOfWork = new RecordingUnitOfWork();
+        var handler = ConDobles(requests, unitOfWork, AccessControlRoles.Administrator);
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => handler.Handle(
+                new RejectPermissionRequestCommand(solicitud.Id, "No corresponde"), default));
+
+        // Assert
+        Assert.IsType<InvalidPermissionRequestTransitionException>(exception);
+        Assert.Equal(PermissionRequestStatus.Applied, solicitud.Status);
+        Assert.Equal(AdministradorId, solicitud.ApproverId);
+        Assert.Equal(Despues, solicitud.ResolvedAt);
+        Assert.Null(solicitud.RejectionReason);
+        Assert.Equal(0, unitOfWork.SaveCount);
+    }
+
+    [Fact]
+    public async Task RF_GP_06_Rechazar_una_rechazada_es_rechazado()
+    {
+        // Arrange
+        var solicitud = PermissionRequest.Create(SolicitanteId, PermissionCodes.DemoAction, Ahora);
+        solicitud.Reject(AdministradorId, Despues, "No corresponde");
+        var requests = new FakePermissionRequestRepository(solicitud);
+        var unitOfWork = new RecordingUnitOfWork();
+        var handler = ConDobles(requests, unitOfWork, AccessControlRoles.Administrator);
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => handler.Handle(
+                new RejectPermissionRequestCommand(solicitud.Id, "Otra razon"), default));
+
+        // Assert
+        Assert.IsType<InvalidPermissionRequestTransitionException>(exception);
+        Assert.Equal(PermissionRequestStatus.Rejected, solicitud.Status);
+        Assert.Equal("No corresponde", solicitud.RejectionReason);
+        Assert.Equal(Despues, solicitud.ResolvedAt);
+        Assert.Equal(0, unitOfWork.SaveCount);
+    }
 }
