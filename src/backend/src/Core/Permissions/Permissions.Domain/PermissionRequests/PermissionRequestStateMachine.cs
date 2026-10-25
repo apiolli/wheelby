@@ -32,6 +32,13 @@ public static class PermissionRequestStateMachine
             null),
 
         new(
+            PermissionRequestStatus.Approved,
+            PermissionRequestStatus.Pending,
+            new HashSet<PermissionActor> { PermissionActor.Administrator },
+            "El administrador puede devolver la solicitud a pendiente.",
+            null),
+
+        new(
             PermissionRequestStatus.Pending,
             PermissionRequestStatus.Rejected,
             new HashSet<PermissionActor> { PermissionActor.Administrator },
