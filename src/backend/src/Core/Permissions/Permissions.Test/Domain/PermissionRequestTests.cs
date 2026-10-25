@@ -10,7 +10,7 @@ public sealed class PermissionRequestTests
     private static readonly Guid AdministratorId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     [Fact]
-    public void Crear_solicitud_nace_en_Pending()
+    public void RF_GP_01_Crear_solicitud_nace_en_Pending()
     {
         // Arrange
         var permissionCode = "core.demo-action";
@@ -29,7 +29,7 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
-    public void Aprobar_pendiente_deja_Approved_y_registra_aprobador_y_fecha()
+    public void RF_GP_03_Aprobar_registra_el_aprobador_y_la_fecha_del_reloj()
     {
         // Arrange
         var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
@@ -45,7 +45,7 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
-    public void Aprobar_dos_veces_es_rechazado_y_el_estado_no_cambia()
+    public void RF_GP_06_Aprobar_dos_veces_es_rechazado_y_el_estado_no_cambia()
     {
         // Arrange
         var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
@@ -63,7 +63,7 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
-    public void Aplicar_aprobada_deja_Applied()
+    public void RF_GP_05_Aplicar_aprobada_deja_Applied()
     {
         // Arrange
         var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
@@ -80,7 +80,7 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
-    public void Resolver_propia_solicitud_es_rechazado_y_no_cambia()
+    public void RF_GP_07_Aprobar_la_propia_solicitud_es_rechazado()
     {
         // Arrange
         var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
@@ -97,7 +97,7 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
-    public void Rechazar_con_motivo_deja_Rejected_y_registra_motivo_y_fecha()
+    public void RF_GP_04_Rechazar_con_motivo_guarda_motivo_recortado()
     {
         // Arrange
         var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
@@ -113,7 +113,7 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
-    public void Rechazar_sin_motivo_es_rechazado_y_sigue_Pending()
+    public void RF_GP_04_Rechazar_con_motivo_ausente_no_cambia_la_solicitud()
     {
         // Arrange
         var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
@@ -130,7 +130,7 @@ public sealed class PermissionRequestTests
     }
 
     [Fact]
-    public void Aplicar_rechazada_es_rechazado_y_conserva_Rejected()
+    public void RF_GP_06_Aplicar_una_rechazada_es_rechazado_y_conserva_Rejected()
     {
         // Arrange
         var request = PermissionRequest.Create(RequesterId, "core.demo-action", Now);
