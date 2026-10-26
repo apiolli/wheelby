@@ -2,7 +2,7 @@
 
 Marketplace de alquiler de vehículos entre particulares. Backend en C# (.NET 10), monolito modular con Clean Architecture, CQRS y DDD, sobre PostgreSQL.
 
-Programación III · ITLA · 2026-C-3 · Asignación 2
+Programación III · ITLA · 2026-C-3 · Práctica 2
 
 Este documento explica, paso a paso, cómo clonar, configurar y ejecutar el backend. Para comprobar cada criterio de aceptación, ver la sección [Cómo verificar los criterios](#9-cómo-verificar-los-criterios).
 
@@ -17,7 +17,7 @@ Este documento explica, paso a paso, cómo clonar, configurar y ejecutar el back
 5. [Secretos de la aplicación](#5-secretos-de-la-aplicación)
 6. [Ejecutar la API](#6-ejecutar-la-api)
 7. [Ejecutar el envío de correos (Worker)](#7-ejecutar-el-envío-de-correos-worker)
-8. [Prueba rápida de punta a punta](#8-prueba-rápida-de-punta-a-punta)
+8. [Control de acceso: los cuatro frentes](#8-control-de-acceso-los-cuatro-frentes)
 9. [Cómo verificar los criterios](#9-cómo-verificar-los-criterios)
    - [Pruebas](#pruebas)
    - [Defectos](#defectos)
@@ -50,7 +50,7 @@ Los comandos de este documento están escritos para **PowerShell (Windows)**. Do
 ```bash
 git clone <URL del repositorio>
 cd <carpeta del repositorio>
-git checkout asignacion-2
+git checkout practica-2
 ```
 
 ---
@@ -144,7 +144,7 @@ dotnet user-secrets set "Jwt:Issuer" "wheelby" --project $api
 dotnet user-secrets set "Jwt:Audience" "wheelby-api" --project $api
 dotnet user-secrets set "Jwt:ExpirationMinutes" "60" --project $api
 
-# Administrador fijo: se crea al arrancar la API.
+# Administrador fijo (rol `Administrator`): se crea al arrancar la API.
 # La contraseña debe tener al menos 8 caracteres, con letras y números.
 dotnet user-secrets set "Admin:Email" "<correo del administrador>" --project $api
 dotnet user-secrets set "Admin:Password" "<contraseña del administrador>" --project $api
@@ -193,7 +193,7 @@ dotnet run --project src/Host/Host.WebAPI
 Al arrancar, la API:
 
 1. crea o actualiza las tablas de los cuatro módulos (esquemas `access_control`, `notifications`, `permissions` y `wheelby`);
-2. crea el Administrador con `Admin:Email` y `Admin:Password` si no existe (y lo restaura si perdió el rol o fue desactivado, sin tocar su contraseña).
+2. crea el Administrador (rol `Administrator`) con `Admin:Email` y `Admin:Password` si no existe (y lo restaura si perdió el rol o fue desactivado, sin tocar su contraseña).
 
 La consola muestra la dirección, normalmente:
 
@@ -208,7 +208,7 @@ Now listening on: http://localhost:5299
   dotnet user-secrets set "App:ActivationUrl" "http://localhost:<puerto>/auth/activate" --project src/Host/Host.WebAPI
   ```
 
-Si falta alguna variable, o `Jwt:Key` tiene menos de 32 caracteres, o `Admin:Password` no cumple la política, **la API no arranca** y la consola indica qué falta.
+Si falta alguna variable obligatoria (`ConnectionStrings:Postgres`, `App:ActivationUrl`, `Jwt:Key`, `Jwt:Issuer`, `Jwt:Audience`, `Admin:Email` o `Admin:Password`; ver la sección 10), o `Jwt:Key` tiene menos de 32 caracteres, o `Admin:Password` no cumple la política, **la API no arranca** y la consola indica qué falta.
 
 Deja esta terminal abierta mientras pruebas.
 
@@ -233,11 +233,53 @@ El Worker procesa los pendientes **en una sola pasada y termina**. Su última l�
 
 ---
 
-## 8. Prueba rápida de punta a punta
+## 8. Control de acceso: los cuatro frentes
 
-Con la API corriendo, en Scalar (`http://localhost:5299/scalar/v1`):
+Con la API corriendo (sección 6), en Scalar (`http://localhost:5299/scalar/v1`). Para usar un token en Scalar: copia el `accessToken` de la respuesta de `POST /auth/login` y pégalo en el botón de autorización (esquema Bearer).
 
-1. **Registrarse:** `POST /auth/register`
+### Roles
+
+Cada usuario tiene **exactamente un rol**. En las peticiones, en las respuestas y en la base de datos los roles se escriben así, en inglés:
+
+| Rol | Valor exacto | Quién lo tiene |
+|---|---|---|
+| Estándar | `Standard` | Todo usuario que se registra con `POST /auth/register` |
+| Administrador | `Administrator` | El Administrador fijo (`Admin:Email` / `Admin:Password`), que la API crea al arrancar, y quien reciba ese rol con `PATCH /admin/users/{id}/role` |
+
+### Rutas y formato de los cuerpos
+
+Todos los cuerpos son JSON (`Content-Type: application/json`) y los nombres de los campos van en camelCase. Los errores se devuelven como `application/problem+json`. Una ruta con sesión exige la cabecera `Authorization: Bearer <accessToken>`.
+
+| Ruta | Sesión | Cuerpo de la petición | Respuesta correcta |
+|---|---|---|---|
+| `POST /auth/register` | No | `{ "fullName": "Ana Pérez", "email": "ana@correo.com", "password": "Clave1234" }` | 201 `{ "message": "..." }` |
+| `GET /auth/activate?userId=<id>&token=<token>` | No | — (es el enlace del correo) | 200 `{ "message": "Cuenta activada..." }` |
+| `POST /auth/activate` | No | `{ "userId": "<id>", "token": "<token>" }` | 200 `{ "message": "Cuenta activada..." }` |
+| `POST /auth/resend-activation` | No | `{ "email": "ana@correo.com" }` | 200 `{ "message": "..." }` |
+| `POST /auth/login` | No | `{ "email": "ana@correo.com", "password": "Clave1234" }` | 200 `{ "accessToken": "...", "expiresAt": "..." }` |
+| `GET /auth/me` | Sí | — | 200 `{ "id": "...", "fullName": "...", "email": "...", "role": "Standard" }` |
+| `POST /auth/logout` | Sí | — | 204 |
+| `POST /auth/refresh` | Sí | — | 200 `{ "accessToken": "...", "expiresAt": "..." }` |
+| `POST /auth/forgot-password` | No | `{ "email": "ana@correo.com" }` | 200 `{ "message": "..." }` |
+| `POST /auth/reset-password` | No | `{ "email": "ana@correo.com", "code": "<código del correo>", "newPassword": "Nueva1234" }` | 200 `{ "message": "Contraseña restablecida..." }` |
+| `POST /auth/change-password` | Sí | `{ "currentPassword": "Clave1234", "newPassword": "Nueva1234" }` | 200 `{ "accessToken": "...", "expiresAt": "..." }` |
+| `GET /admin/users?page=1&pageSize=20` | `Administrator` | — | 200, lista paginada |
+| `PATCH /admin/users/{id}/role` | `Administrator` | `{ "role": "Administrator" }` o `{ "role": "Standard" }` | 204 |
+| `POST /admin/users/{id}/disable` | `Administrator` | — | 204 |
+| `POST /admin/users/{id}/enable` | `Administrator` | — | 204 |
+| `POST /admin/users/{id}/force-password-reset` | `Administrator` | — | 204 |
+
+Contraseñas: al menos 8 caracteres, con letras y números. En las rutas `/admin/...`: sin sesión, **401**; con sesión pero sin el rol `Administrator`, **403**.
+
+Si no quieres esperar el correo, el enlace de activación y el código de recuperación también se leen de la cola:
+
+```sql
+SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "CreatedAt" DESC;
+```
+
+### Frente 1: registro con activación por correo
+
+1. `POST /auth/register` con un correo real:
 
    ```json
    {
@@ -247,24 +289,67 @@ Con la API corriendo, en Scalar (`http://localhost:5299/scalar/v1`):
    }
    ```
 
-   Respuesta: 201.
+   → **201**.
+2. `POST /auth/login` con ese correo y esa contraseña, **antes** de activar → **403** "La cuenta no está activa…".
+3. En otra terminal, desde `src/backend`: `dotnet run --project src/Host/Host.Worker` → `Sent: 1`. Llega el correo «Activa tu cuenta de Wheelby» (revisa spam).
+4. Abrir el enlace del correo → **200** "Cuenta activada. Ya puedes iniciar sesión."
+5. Abrir el mismo enlace otra vez → **400** (el enlace es de un solo uso).
 
-2. **Intentar iniciar sesión antes de activar:** `POST /auth/login` con ese correo y contraseña → 403 "La cuenta no está activa…".
-3. **Enviar el correo:** en la otra terminal, `dotnet run --project src/Host/Host.Worker`.
-4. **Activar:** abrir el enlace del correo recibido → "Cuenta activada". Abrirlo otra vez → rechazo.
-5. **Iniciar sesión:** `POST /auth/login` → 200 con `accessToken`.
-6. **Autenticarse en Scalar:** copiar el `accessToken` y pegarlo en el botón de autorización (esquema Bearer). Luego `GET /auth/me` → 200 con el usuario y su rol.
-7. **Administrador:** `POST /auth/login` con `Admin:Email` y `Admin:Password`, autenticarse con ese token y probar `GET /admin/users`.
-8. **403 con un Estándar:** con el token del usuario registrado (rol `Standard`), llamar a mano `GET /admin/users` → 403 "No tienes permiso para realizar esta operación." Sin token → 401.
-9. **Recuperación de contraseña:** `POST /auth/forgot-password` con el correo del usuario → 200. Ejecutar el Worker, leer el código del correo y llamar `POST /auth/reset-password` con `newPassword` → 200. La contraseña anterior ya no entra (401) y la nueva sí (200).
-10. **Cerrar sesión:** `POST /auth/logout` con el token → 204. Reutilizar ese mismo token en `GET /auth/me` → 401.
+### Frente 2: inicio y cierre de sesión
+
+1. `POST /auth/login` con el usuario activado:
+
+   ```json
+   { "email": "<tu correo>", "password": "Clave1234" }
+   ```
+
+   → **200** con `accessToken`. Pega el token en Scalar.
+2. `GET /auth/me` → **200** con `id`, `fullName`, `email` y `role` = `Standard`.
+3. `POST /auth/logout` → **204**.
+4. `GET /auth/me` con el **mismo token** → **401**: la sesión quedó cerrada.
+
+### Frente 3: rechazo a un Estándar en una operación de Administrador
+
+1. Inicia sesión otra vez con el usuario Estándar y pega su token.
+2. `GET /admin/users` → **403** "No tienes permiso para realizar esta operación."
+
+   La misma petición construida a mano, fuera de Scalar:
+
+   ```powershell
+   Invoke-RestMethod -Method Get -Uri "http://localhost:5299/admin/users" `
+     -Headers @{ Authorization = "Bearer <token del usuario Estándar>" }
+   ```
+
+   `Invoke-RestMethod` lanza una excepción con el 403: es el resultado esperado.
+3. Sin token → **401**.
+4. Comparación: `POST /auth/login` con `Admin:Email` y `Admin:Password` (rol `Administrator`), pega ese token y repite `GET /admin/users` → **200**.
+
+### Frente 4: recuperación de contraseña
+
+1. `POST /auth/forgot-password`:
+
+   ```json
+   { "email": "<tu correo>" }
+   ```
+
+   → **200**.
+2. Ejecuta el Worker (`dotnet run --project src/Host/Host.Worker`). Llega el correo «Recupera tu contraseña de Wheelby» con un código.
+3. `POST /auth/reset-password`:
+
+   ```json
+   { "email": "<tu correo>", "code": "<código del correo>", "newPassword": "Nueva1234" }
+   ```
+
+   → **200** "Contraseña restablecida. Ya puedes iniciar sesión."
+4. `POST /auth/login` con la contraseña **anterior** (`Clave1234`) → **401**. Con la **nueva** (`Nueva1234`) → **200**.
+5. Repetir el paso 3 con el mismo código → **400** (el código es de un solo uso).
 
 ---
 
 ## 9. Cómo verificar los criterios
 
 - **Control de acceso y correo por cola** (RF-CA-01 a 22, RF-NOT-08, 09, 12, 13): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/control-acceso/README.md](docs/control-acceso/README.md).
-- **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquita-de-estados/README.md](docs/maquita-de-estados/README.md).
+- **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquina-de-estados/README.md](docs/maquina-de-estados/README.md).
 - **Gestión de permisos** (RF-GP-01 a 07, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/gestion-permisos/README.md](docs/gestion-permisos/README.md).
 
 Atajos útiles para las pruebas:
@@ -312,36 +397,50 @@ cd src/backend
 dotnet test
 ```
 
-`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta las **71 pruebas** de `Permissions.Test`. No levantan la API ni necesitan PostgreSQL ni Docker.
+`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta las **71 pruebas** de `Permissions.Test` (una prueba con varios casos cuenta una vez por caso). Resultado esperado: `Failed: 0, Passed: 71`. No levantan la API ni necesitan PostgreSQL ni Docker.
 
 - **Dominio:** reglas de `PermissionRequest` y la matriz completa de transiciones de `PermissionRequestStateMachine` (32 combinaciones de origen, destino y actor, más la tabla declarada exacta).
 - **Casos de uso:** los handlers de crear, listar, aprobar y rechazar se prueban con dobles de sus puertos: reloj fijo, usuario actual fijo, catálogo fijo, repositorios en memoria y unidad de trabajo que cuenta los guardados. Cada prueba crea sus propios dobles, sin estado compartido.
 - **Infraestructura:** `PermissionRequestReadStore` y `PermissionChecker` se prueban sobre `PermissionsDbContext` con EF InMemory, con un nombre de base único por prueba.
-- Todas usan fechas fijas, siguen Arrange/Act/Assert, verifican un solo comportamiento y llevan el ID del requisito en el nombre (`RF_GP_0X_...`).
+- Todas usan fechas fijas, siguen Arrange/Act/Assert, verifican un solo comportamiento y llevan el ID del requisito al inicio del nombre (`RF_GP_0X_...`).
 - La primera vez, `dotnet test` restaura los paquetes automáticamente. No hace falta instalar `dotnet-ef` ni Docker para ejecutar las pruebas.
-- Cada prueba vive en el proyecto de pruebas de su módulo, junto al código que verifica.
+
+### Pruebas por requisito
+
+Carpeta: `src/backend/src/Core/Permissions/Permissions.Test/`. Abreviaturas: **D** = `Domain/`, **A** = `Application/`, **I** = `Infrastructure/`.
+
+| Requisito | Lo que se verifica | Pruebas |
+|---|---|---|
+| **RF-GP-01** | La solicitud nace en estado Pendiente | `RF_GP_01_Crear_solicitud_nace_en_Pending` (D); `RF_GP_01_Crear_guarda_una_vez_y_devuelve_el_id`, `RF_GP_01_Crear_con_codigo_inexistente_es_rechazado`, `RF_GP_01_Crear_con_solicitud_pendiente_duplicada_es_rechazado`, `RF_GP_01_Crear_con_concesion_existente_es_rechazado`, `RF_GP_01_Crear_tras_una_rechazada_es_permitido` (A) |
+| **RF-GP-02** | Un Estándar no ve las solicitudes de otros usuarios | `RF_GP_02_Listar_mis_solicitudes_usa_el_usuario_actual` (A); `RF_GP_02_Las_solicitudes_de_una_persona_excluyen_a_los_demas`, `RF_GP_02_Las_pendientes_excluyen_las_resueltas` (I) |
+| **RF-GP-03** | Queda registrado quién aprobó y cuándo | `RF_GP_03_Aprobar_registra_el_aprobador_y_la_fecha_del_reloj` (D y A) |
+| **RF-GP-04** | Sin motivo, ausente o vacío, el rechazo no se completa y el estado no cambia | `RF_GP_04_Rechazar_con_motivo_ausente_no_cambia_la_solicitud` (D), `RF_GP_04_Deja_la_solicitud_y_los_datos_sin_cambios_sin_motivo` (A), ambas con los casos `null`, `""` y `"   "`; `RF_GP_04_Rechazar_con_motivo_guarda_motivo_recortado` (D), `RF_GP_04_Rechazar_guarda_un_motivo_recortado` (A) |
+| **RF-GP-05** | Tras aprobar, la solicitud llega a Aplicada y el permiso queda efectivo | `RF_GP_05_Aplicar_aprobada_deja_Applied` (D); `RF_GP_05_Aprobar_deja_la_solicitud_en_Applied`, `RF_GP_05_Aprobar_crea_la_concesion_del_solicitante` (A); `RF_GP_05_Checker_devuelve_true_solo_para_usuario_y_codigo` (I) |
+| **RF-GP-06** | Aprobar dos veces, Rechazada → Aplicada y cualquier otra transición fuera de la tabla se rechazan y el estado no cambia | `RF_GP_06_Aprobar_dos_veces_es_rechazado_y_el_estado_no_cambia`, `RF_GP_06_Aplicar_una_rechazada_es_rechazado_y_conserva_Rejected` (D); `RF_GP_06_Todas_las_transiciones_fuera_de_la_tabla_son_rechazadas` (32 casos), `RF_GP_06_Tabla_de_transiciones_declarada_es_exacta`, `RF_GP_06_Aprobar_una_solicitud_Applied_es_rechazado`, `RF_GP_06_Aprobar_una_rechazada_es_rechazado` (D, máquina de estados); `RF_GP_06_Aprobar_dos_veces_no_crea_segunda_concesion`, `RF_GP_06_Aprobar_una_solicitud_Applied_es_rechazado`, `RF_GP_06_Rechazar_una_aprobada_es_rechazado`, `RF_GP_06_Rechazar_una_aplicada_es_rechazado`, `RF_GP_06_Rechazar_una_rechazada_es_rechazado` (A) |
+| **RF-GP-07** | Un Administrador que aprueba o rechaza su propia solicitud recibe un rechazo | `RF_GP_07_Aprobar_la_propia_solicitud_es_rechazado`, `RF_GP_07_Rechazar_la_propia_solicitud_es_rechazado` (D y A); `RF_GP_07_Aprobar_la_propia_resuelta_prioriza_403`, `RF_GP_07_Rechazar_la_propia_resuelta_prioriza_403` (A) |
 
 ---
 
 ## Defectos
 
-La suite está preparada para detectar seis defectos sembrados a propósito. Cada etiqueta `practica-2-defecto-N` cuelga de `practica-2` y contiene un solo commit que modifica únicamente código de producción: las pruebas nunca se tocan. Las líneas son las de `practica-2`.
+Variante A. Cada etiqueta `practica-2-defecto-N` es un solo commit cuyo padre es `practica-2`. Modifica únicamente código de producción de Gestión de permisos, nunca archivos de pruebas, y su mensaje indica el archivo y la línea. Las líneas son las de `practica-2`.
 
-| Etiqueta | Requisito | Archivo y línea | Defecto sembrado | Pruebas que lo detectan |
-|---|---|---|---|---|
-| `practica-2-defecto-1` | RF-GP-06 | `PermissionRequestStateMachine.cs`, `Validate` (líneas 69 y 77) | Para el destino `Approved` acepta cualquier origen distinto de `Rejected`: una solicitud ya aprobada o aplicada se puede volver a aprobar | `RF_GP_06_Aprobar_una_solicitud_Applied_es_rechazado`, `RF_GP_06_Aprobar_dos_veces_no_crea_segunda_concesion`, `RF_GP_06_Aprobar_dos_veces_es_rechazado_y_el_estado_no_cambia` y la matriz de transiciones |
-| `practica-2-defecto-2` | RF-GP-06 | `PermissionRequestStateMachine.cs`, `AllowedTransitions` y `Validate` | Agrega `Rejected → Applied` y la hace alcanzable | `RF_GP_06_Aplicar_una_rechazada_es_rechazado_y_conserva_Rejected`, `RF_GP_06_Tabla_de_transiciones_declarada_es_exacta` y la matriz |
-| `practica-2-defecto-3` | RF-GP-07 | Handlers de aprobar (línea 26) y rechazar (línea 24); guardas de la tabla (líneas 25 y 39-40) | Elimina la comprobación de autorresolución en sus cuatro copias | `RF_GP_07_Aprobar_la_propia_solicitud_es_rechazado`, `RF_GP_07_Rechazar_la_propia_solicitud_es_rechazado` y las dos pruebas de precedencia `..._prioriza_403` |
-| `practica-2-defecto-4` | RF-GP-02 | `PermissionRequestReadStore.cs`, línea 31 | Invierte el filtro: `RequesterId == requesterId` pasa a `!=` | `RF_GP_02_Las_solicitudes_de_una_persona_excluyen_a_los_demas` |
-| `practica-2-defecto-5` | RF-GP-06 | `PermissionRequestStateMachine.cs`, `AllowedTransitions` | Agrega `Approved → Pending` (actor `Administrator`, sin guarda) | `RF_GP_06_Tabla_de_transiciones_declarada_es_exacta` y la matriz |
-| `practica-2-defecto-6` | RF-GP-04 | `PermissionRequest.cs`, línea 67 | Deja de guardar el motivo: borra `RejectionReason = rejectionReason?.Trim();` | `RF_GP_04_Rechazar_con_motivo_guarda_motivo_recortado`, `RF_GP_04_Rechazar_guarda_un_motivo_recortado` y las pruebas de rechazo |
-
-Cada defecto compila y hace fallar al menos una prueba. Se comprueba sobre cada etiqueta:
+Para comprobar un defecto:
 
 ```bash
+git checkout practica-2-defecto-1   # cambiar el número
 cd src/backend
-dotnet test
+dotnet test                         # debe reportar las pruebas fallidas de la tabla
 ```
+
+| Etiqueta | Requisito | Archivo y línea | Comportamiento con el defecto | Pruebas que fallan (lo que comprueban) |
+|---|---|---|---|---|
+| `practica-2-defecto-1` | RF-GP-06 | `PermissionRequestStateMachine.cs`, `Validate`, líneas 69 y 77 | Al aprobar, la condición «el estado es Pendiente» pasa a «el estado no es Rechazada»: una solicitud ya aprobada o aplicada puede volver a aprobarse | **6:** `RF_GP_06_Aprobar_dos_veces_es_rechazado_y_el_estado_no_cambia` (D), `RF_GP_06_Aprobar_una_solicitud_Applied_es_rechazado` (D y A), `RF_GP_06_Aprobar_dos_veces_no_crea_segunda_concesion` (A) y `RF_GP_06_Todas_las_transiciones_fuera_de_la_tabla_son_rechazadas` en los casos Approved → Approved y Applied → Approved. Comprueban que aprobar dos veces se rechaza y que el estado no cambia |
+| `practica-2-defecto-2` | RF-GP-06 | `PermissionRequestStateMachine.cs`, `AllowedTransitions` (fila nueva) y `Validate`, líneas 69 y 73-75 | Se declara Rechazada → Aplicada. Los dos cambios de `Validate` son los necesarios para que esa fila se alcance, porque Rejected es terminal y Rejected → Applied está prohibida de forma explícita: una solicitud rechazada puede llegar a Aplicada | **3:** `RF_GP_06_Aplicar_una_rechazada_es_rechazado_y_conserva_Rejected` (D), `RF_GP_06_Tabla_de_transiciones_declarada_es_exacta` y `RF_GP_06_Todas_las_transiciones_fuera_de_la_tabla_son_rechazadas` en el caso Rejected → Applied. Comprueban que Rechazada → Aplicada se rechaza y que la tabla declarada es exactamente la permitida |
+| `practica-2-defecto-3` | RF-GP-07 | `ApprovePermissionRequestCommandHandler.cs`, línea 26; `RejectPermissionRequestCommandHandler.cs`, línea 24; `PermissionRequestStateMachine.cs`, líneas 25 y 39-40 | Se elimina la verificación de autorresolución en los cuatro lugares donde se aplica: un Administrador puede aprobar o rechazar su propia solicitud | **6:** `RF_GP_07_Aprobar_la_propia_solicitud_es_rechazado` (D y A), `RF_GP_07_Rechazar_la_propia_solicitud_es_rechazado` (D y A), `RF_GP_07_Aprobar_la_propia_resuelta_prioriza_403` y `RF_GP_07_Rechazar_la_propia_resuelta_prioriza_403` (A). Comprueban que resolver la propia solicitud se rechaza |
+| `practica-2-defecto-4` | RF-GP-02 | `PermissionRequestReadStore.cs`, línea 31 | `RequesterId == requesterId` pasa a `!=`: un Estándar ve las solicitudes de otros y no las suyas | **1:** `RF_GP_02_Las_solicitudes_de_una_persona_excluyen_a_los_demas` (I). Comprueba que la consulta de un usuario devuelve solo sus solicitudes |
+| `practica-2-defecto-5` | RF-GP-06 | `PermissionRequestStateMachine.cs`, `AllowedTransitions` (fila nueva después de Approved → Applied) | Se declara Aprobada → Pendiente: una solicitud aprobada puede volver a Pendiente | **2:** `RF_GP_06_Tabla_de_transiciones_declarada_es_exacta` y `RF_GP_06_Todas_las_transiciones_fuera_de_la_tabla_son_rechazadas` en el caso Approved → Pending. Comprueban que ninguna transición fuera de la tabla se acepta |
+| `practica-2-defecto-6` | RF-GP-04 | `PermissionRequest.cs`, línea 67 | Se elimina `RejectionReason = rejectionReason?.Trim();`: una solicitud rechazada queda sin su motivo | **13:** `RF_GP_04_Rechazar_con_motivo_guarda_motivo_recortado` (D) y `RF_GP_04_Rechazar_guarda_un_motivo_recortado` (A), que comprueban que se guarda el motivo. También fallan las pruebas de RF-GP-06 que parten de una solicitud rechazada y comprueban que su motivo no cambia: `RF_GP_06_Aplicar_una_rechazada_es_rechazado_y_conserva_Rejected` (D), `RF_GP_06_Aprobar_una_rechazada_es_rechazado` (D), `RF_GP_06_Rechazar_una_rechazada_es_rechazado` (A) y 8 casos de `RF_GP_06_Todas_las_transiciones_fuera_de_la_tabla_son_rechazadas` con origen Rejected |
 
 ---
 
@@ -349,22 +448,24 @@ dotnet test
 
 Ningún valor real está en el repositorio. `.env.example` solo contiene valores de ejemplo.
 
-| Variable (como user-secret)  | Como variable de entorno                                             | Para qué sirve                                                         | Quién la lee            |
-| ---------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------- |
-| —                            | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Crear la base de datos del contenedor y publicar su puerto             | Docker Compose (`.env`) |
-| `ConnectionStrings:Postgres` | `ConnectionStrings__Postgres`                                        | Conexión a la base de datos                                            | API y Worker            |
-| `App:ActivationUrl`          | `App__ActivationUrl`                                                 | Dirección a la que apunta el enlace del correo de activación           | API                     |
-| `Jwt:Key`                    | `Jwt__Key`                                                           | Clave secreta que firma la credencial de sesión (mínimo 32 caracteres) | API                     |
-| `Jwt:Issuer`                 | `Jwt__Issuer`                                                        | Emisor de la credencial                                                | API                     |
-| `Jwt:Audience`               | `Jwt__Audience`                                                      | Destinatario de la credencial                                          | API                     |
-| `Jwt:ExpirationMinutes`      | `Jwt__ExpirationMinutes`                                             | Vigencia de la sesión, en minutos                                      | API                     |
-| `Admin:Email`                | `Admin__Email`                                                       | Correo del Administrador fijo                                          | API                     |
-| `Admin:Password`             | `Admin__Password`                                                    | Contraseña inicial del Administrador fijo                              | API                     |
-| `Smtp:Host`                  | `Smtp__Host`                                                         | Servidor de correo saliente                                            | Worker                  |
-| `Smtp:Port`                  | `Smtp__Port`                                                         | Puerto del servidor de correo (587, STARTTLS)                          | Worker                  |
-| `Smtp:User`                  | `Smtp__User`                                                         | Usuario del servidor de correo                                         | Worker                  |
-| `Smtp:Password`              | `Smtp__Password`                                                     | Contraseña del servidor de correo                                      | Worker                  |
-| `Smtp:From`                  | `Smtp__From`                                                         | Remitente de los correos                                               | Worker                  |
+**Obligatorias:** si falta una variable obligatoria, la aplicación que la usa **no arranca** y la consola dice cuál falta (sin mostrar su valor).
+
+| Variable (como user-secret)  | Como variable de entorno | ¿Obligatoria? | Para qué sirve | Quién la lee |
+| ---------------------------- | ------------------------ | ------------- | -------------- | ------------ |
+| —                            | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Sí | Crear la base de datos del contenedor y publicar su puerto | Docker Compose (`.env`) |
+| `ConnectionStrings:Postgres` | `ConnectionStrings__Postgres` | **Sí** | Conexión a la base de datos | API y Worker |
+| `App:ActivationUrl`          | `App__ActivationUrl`          | **Sí** | Dirección a la que apunta el enlace del correo de activación (`http://localhost:5299/auth/activate`) | API |
+| `Jwt:Key`                    | `Jwt__Key`                    | **Sí** | Clave secreta que firma la credencial de sesión (mínimo 32 caracteres) | API |
+| `Jwt:Issuer`                 | `Jwt__Issuer`                 | **Sí** | Emisor de la credencial (por ejemplo `wheelby`) | API |
+| `Jwt:Audience`               | `Jwt__Audience`               | **Sí** | Destinatario de la credencial (por ejemplo `wheelby-api`) | API |
+| `Jwt:ExpirationMinutes`      | `Jwt__ExpirationMinutes`      | No (60 por defecto) | Vigencia de la sesión, en minutos | API |
+| `Admin:Email`                | `Admin__Email`                | **Sí** | Correo del Administrador fijo (rol `Administrator`) | API |
+| `Admin:Password`             | `Admin__Password`             | **Sí** | Contraseña inicial del Administrador fijo (8+ caracteres, con letras y números) | API |
+| `Smtp:Host`                  | `Smtp__Host`                  | **Sí**, para el Worker | Servidor de correo saliente | Worker |
+| `Smtp:Port`                  | `Smtp__Port`                  | **Sí**, para el Worker | Puerto del servidor de correo (587, STARTTLS) | Worker |
+| `Smtp:User`                  | `Smtp__User`                  | **Sí**, para el Worker | Usuario del servidor de correo | Worker |
+| `Smtp:Password`              | `Smtp__Password`              | **Sí**, para el Worker | Contraseña del servidor de correo | Worker |
+| `Smtp:From`                  | `Smtp__From`                  | **Sí**, para el Worker | Remitente de los correos | Worker |
 
 Valores fijados en el código (no son variables): vigencia del enlace de activación, 24 horas; vigencia del código de recuperación, 30 minutos; bloqueo tras 5 intentos fallidos, durante 15 minutos.
 
@@ -424,7 +525,7 @@ SELECT * FROM wheelby."Reservations";
 ```
 <raíz del repositorio>/
 ├─ docs/
-│  ├─ maquita-de-estados/README.md   Máquinas de estados de la Reserva y de los Permisos
+│  ├─ maquina-de-estados/README.md   Máquinas de estados de la Reserva y de los Permisos
 │  ├─ control-acceso/README.md       Cómo verificar cada criterio de Control de acceso
 │  ├─ gestion-permisos/README.md     Cómo verificar cada criterio de Gestión de permisos
 │  └─ bitacora-asignacion-2.md       Bitácora de la sesión con el agente

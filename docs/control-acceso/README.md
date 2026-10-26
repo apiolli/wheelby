@@ -15,35 +15,35 @@ Registro con activación por correo, sesión, roles, administración de usuarios
 | Cola de correos (mínima)            | RF-NOT-08, 09, 12, 13                      | Implementado |
 | Estructura de la máquina de estados | RF-NEG-03, 04, 05, RD-04                   | Implementado    |
 
-Las secciones marcadas como **Pendiente** se completan en el PR que las implementa. Mientras tanto no se pueden verificar.
-
 ## Requisitos previos
 
 - .NET SDK 10 y Docker Desktop.
 - Un servidor SMTP (por ejemplo Gmail con contraseña de aplicación).
-- Todos los comandos se ejecutan desde la carpeta `backend`.
+- Todos los comandos se ejecutan desde la carpeta `src/backend` (la que contiene `Wheelby.slnx`).
 - La base de datos y los secretos se preparan siguiendo el README principal (PostgreSQL con Docker Compose y `dotnet user-secrets`).
 
 ## Variables de entorno
 
 Nunca se guardan valores en el repositorio: `.env.example` solo trae ejemplos. El archivo `.env` lo lee **solo Docker Compose**. La API y el Worker leen sus valores de `dotnet user-secrets` (separador `:`) o de variables de entorno (separador `__`). Por ejemplo, `Smtp:Host` en user-secrets es `Smtp__Host` como variable de entorno.
 
-| Variable                                                             | Para qué sirve                                                                                            | Quién la lee   |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Crean la base de datos del contenedor y el puerto publicado                                               | Docker Compose |
-| `ConnectionStrings__Postgres`                                        | Conexión a la base donde persisten usuarios, sesiones y correos en cola                                   | API y Worker   |
-| `Smtp__Host`                                                         | Host del servidor de correo saliente                                                                      | Worker         |
-| `Smtp__Port`                                                         | Puerto del servidor de correo (587 con STARTTLS)                                                          | Worker         |
-| `Smtp__User`                                                         | Usuario con el que se autentica el envío                                                                  | Worker         |
-| `Smtp__Password`                                                     | Contraseña de aplicación del servidor de correo                                                           | Worker         |
-| `Smtp__From`                                                         | Remitente de los correos                                                                                  | Worker         |
-| `App__ActivationUrl`                                                 | URL a la que apunta el enlace del correo de activación (hoy, el endpoint `GET /auth/activate` de la API)  | API            |
-| `Jwt__Key`                                                           | Clave secreta con la que se firma la credencial de sesión (mínimo 32 caracteres)                          | API            |
-| `Jwt__Issuer`                                                        | Emisor que se escribe y se exige en la credencial                                                         | API            |
-| `Jwt__Audience`                                                      | Destinatario que se escribe y se exige en la credencial                                                   | API            |
-| `Jwt__ExpirationMinutes`                                             | Vigencia de la sesión y de su credencial, en minutos (60 por defecto)                                     | API            |
-| `Admin__Email`                                                       | Correo del Administrador fijo, que se crea o restaura al arrancar la API                                  | API            |
-| `Admin__Password`                                                    | Contraseña inicial del Administrador fijo (debe cumplir la política: 8+ caracteres, con letras y números) | API            |
+Si falta una variable obligatoria, la aplicación que la usa **no arranca** y el mensaje dice cuál falta.
+
+| Variable | ¿Obligatoria? | Para qué sirve | Quién la lee |
+| -------- | ------------- | -------------- | ------------ |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Sí | Crean la base de datos del contenedor y el puerto publicado | Docker Compose |
+| `ConnectionStrings__Postgres` | **Sí** | Conexión a la base donde persisten usuarios, sesiones y correos en cola | API y Worker |
+| `App__ActivationUrl` | **Sí** | URL a la que apunta el enlace del correo de activación (hoy, el endpoint `GET /auth/activate` de la API: `http://localhost:5299/auth/activate`) | API |
+| `Jwt__Key` | **Sí** | Clave secreta con la que se firma la credencial de sesión (mínimo 32 caracteres) | API |
+| `Jwt__Issuer` | **Sí** | Emisor que se escribe y se exige en la credencial | API |
+| `Jwt__Audience` | **Sí** | Destinatario que se escribe y se exige en la credencial | API |
+| `Jwt__ExpirationMinutes` | No (60 por defecto) | Vigencia de la sesión y de su credencial, en minutos | API |
+| `Admin__Email` | **Sí** | Correo del Administrador fijo (rol `Administrator`), que se crea o restaura al arrancar la API | API |
+| `Admin__Password` | **Sí** | Contraseña inicial del Administrador fijo (debe cumplir la política: 8+ caracteres, con letras y números) | API |
+| `Smtp__Host` | **Sí**, para el Worker | Host del servidor de correo saliente | Worker |
+| `Smtp__Port` | **Sí**, para el Worker | Puerto del servidor de correo (587 con STARTTLS) | Worker |
+| `Smtp__User` | **Sí**, para el Worker | Usuario con el que se autentica el envío | Worker |
+| `Smtp__Password` | **Sí**, para el Worker | Contraseña de aplicación del servidor de correo | Worker |
+| `Smtp__From` | **Sí**, para el Worker | Remitente de los correos | Worker |
 
 Notas:
 
@@ -53,7 +53,7 @@ Notas:
   - bloqueo por intentos fallidos (RF-CA-19): **5 intentos, 15 minutos** (`User`).
 - Si falta alguna variable `Jwt__*`, o la clave tiene menos de 32 caracteres, **la API no arranca** y el mensaje lo indica (sin mostrar la clave).
 - Si falta `Admin__Email` o `Admin__Password`, **la API tampoco arranca**: sin Administrador no se puede administrar nada.
-- Secretos de la API (ejecutar desde `backend`; usa el puerto de tu API, que aparece en la consola al arrancar):
+- Secretos de la API (ejecutar desde `src/backend`; usa el puerto de tu API, que aparece en la consola al arrancar):
 
   ```bash
   dotnet user-secrets set "App:ActivationUrl" "http://localhost:5299/auth/activate" --project src/Host/Host.WebAPI
@@ -91,6 +91,40 @@ dotnet run --project src/Host/Host.Worker
 ```
 
 Procesa los correos pendientes en una sola pasada y termina. El log dice cuántos se enviaron y cuántos fallaron; el código de salida es `0` si todo salió bien y `1` si alguno falló. Ejecutarlo de nuevo no reenvía los que ya salieron (ver RF-NOT-09 / RF-NOT-12 abajo). Los correos de activación y de recuperación de contraseña solo llegan a la bandeja después de ejecutarlo.
+
+## Roles
+
+Cada usuario tiene **exactamente un rol**. En las peticiones, en las respuestas y en la base de datos los roles se escriben así, en inglés:
+
+| Rol | Valor exacto | Quién lo tiene |
+|---|---|---|
+| Estándar | `Standard` | Todo usuario que se registra con `POST /auth/register` |
+| Administrador | `Administrator` | El Administrador fijo (`Admin:Email` / `Admin:Password`), que la API crea al arrancar, y quien reciba ese rol con `PATCH /admin/users/{id}/role` |
+
+## Rutas y formato de los cuerpos
+
+Todos los cuerpos son JSON (`Content-Type: application/json`) y los nombres de los campos van en camelCase. Los errores se devuelven como `application/problem+json`. Una ruta con sesión exige la cabecera `Authorization: Bearer <accessToken>`.
+
+| Ruta | Sesión | Cuerpo de la petición | Respuesta correcta |
+|---|---|---|---|
+| `POST /auth/register` | No | `{ "fullName": "Ana Pérez", "email": "ana@correo.com", "password": "Clave1234" }` | 201 `{ "message": "..." }` |
+| `GET /auth/activate?userId=<id>&token=<token>` | No | — (es el enlace del correo) | 200 `{ "message": "Cuenta activada..." }` |
+| `POST /auth/activate` | No | `{ "userId": "<id>", "token": "<token>" }` | 200 `{ "message": "Cuenta activada..." }` |
+| `POST /auth/resend-activation` | No | `{ "email": "ana@correo.com" }` | 200 `{ "message": "..." }` |
+| `POST /auth/login` | No | `{ "email": "ana@correo.com", "password": "Clave1234" }` | 200 `{ "accessToken": "...", "expiresAt": "..." }` |
+| `GET /auth/me` | Sí | — | 200 `{ "id": "...", "fullName": "...", "email": "...", "role": "Standard" }` |
+| `POST /auth/logout` | Sí | — | 204 |
+| `POST /auth/refresh` | Sí | — | 200 `{ "accessToken": "...", "expiresAt": "..." }` |
+| `POST /auth/forgot-password` | No | `{ "email": "ana@correo.com" }` | 200 `{ "message": "..." }` |
+| `POST /auth/reset-password` | No | `{ "email": "ana@correo.com", "code": "<código del correo>", "newPassword": "Nueva1234" }` | 200 `{ "message": "Contraseña restablecida..." }` |
+| `POST /auth/change-password` | Sí | `{ "currentPassword": "Clave1234", "newPassword": "Nueva1234" }` | 200 `{ "accessToken": "...", "expiresAt": "..." }` |
+| `GET /admin/users?page=1&pageSize=20` | `Administrator` | — | 200, lista paginada |
+| `PATCH /admin/users/{id}/role` | `Administrator` | `{ "role": "Administrator" }` o `{ "role": "Standard" }` | 204 |
+| `POST /admin/users/{id}/disable` | `Administrator` | — | 204 |
+| `POST /admin/users/{id}/enable` | `Administrator` | — | 204 |
+| `POST /admin/users/{id}/force-password-reset` | `Administrator` | — | 204 |
+
+Contraseñas: al menos 8 caracteres, con letras y números. En las rutas `/admin/...`: sin sesión, **401**; con sesión pero sin el rol `Administrator`, **403**.
 
 ## Cómo provocar cada criterio de aceptación
 
@@ -229,7 +263,7 @@ Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/rol
   ```
 
 - [x] **RF-CA-05** — Ubicar el punto único donde se declara el rol que exige cada operación de administración:
-  - `src/Core/AccessControl/AccessControl.Infrastructure/Endpoints/AccessControlEndpoints.cs`, método `MapAdminUserEndpoints`: una sola llamada `RequireAuthorization(AccessControlPolicies.RequireAdministrator)` sobre el grupo `/admin/users`. Toda ruta añadida al grupo hereda la exigencia.
+  - `src/backend/src/Core/AccessControl/AccessControl.Infrastructure/Endpoints/Endpoints.cs`, método `MapAdminUserEndpoints`: una sola llamada `RequireAuthorization(AccessControlPolicies.RequireAdministrator)` sobre el grupo `/admin/users`. Toda ruta añadida al grupo hereda la exigencia.
   - La política que exige el rol Administrador se define una sola vez en `AccessControl.Infrastructure/DependencyInjection.cs` (`AddAuthorizationBuilder`), y su nombre está en `AccessControl.Contracts/AccessControlPolicies.cs`.
   - Ningún handler vuelve a comprobar el rol.
 
@@ -252,7 +286,7 @@ Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/rol
 
 - [x] **RF-CA-21** — Como Administrador, `GET /admin/users` → 200 con `items`, `page`, `pageSize`, `totalItems`, `totalPages`, `hasPreviousPage` y `hasNextPage`. Cada item trae `id`, `fullName`, `email`, `role`, `status` (`Active`, `Disabled` o `PendingActivation`) y `createdAt`, y **nunca hashes ni tokens**. `?page=2&pageSize=1` devuelve una fila con los indicadores correctos; `?pageSize=500` o `?page=0` → 400 por campo. Como Estándar → 403.
 
-- [ ] **Seed del Administrador** (RF-CA-04, 08):
+- [x] **Seed del Administrador** (RF-CA-04, 08):
   1. Arrancar sin `Admin:Email` o `Admin:Password` → la API no arranca, con un mensaje claro.
   2. Arrancar con ambas → fila del administrador con `Role = 'Administrator'` y `ActivatedAt` con valor; `PasswordHash` distinto de la contraseña.
   3. Reiniciar la API → no se crea otro usuario y `PasswordHash` no cambia.
@@ -357,7 +391,7 @@ Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/rol
 - [x] **RF-NEG-03 / RD-04** — Los estados y las transiciones de la reserva están declarados en un solo lugar: `src/backend/src/Domain/Wheelby/Wheelby.Domain/Reservations/ReservationStatus.cs` y `ReservationStateMachine.AllowedTransitions`. `Reservation.TransitionTo` es el único código que cambia `Status`.
 - [x] **RF-NEG-04** — La transición explícitamente prohibida (`InProgress → Cancelled`, con su motivo) está en `ReservationStateMachine.ExplicitlyForbidden` y se rechaza con 409.
 - [x] **RF-NEG-05** — Los estados terminales (`Completed` y `Cancelled`) están en `ReservationStateMachine.TerminalStates`; ninguna transición parte de ellos.
-- [x] Tabla de transiciones, diagrama y notas en [`../maquita-de-estados/README.md`](../maquita-de-estados/README.md).
+- [x] Tabla de transiciones, diagrama y notas en [`../maquina-de-estados/README.md`](../maquina-de-estados/README.md).
 
 ### Persistencia
 
@@ -388,7 +422,6 @@ Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/rol
 - **Correo por la cola:** las operaciones guardan sus cambios y después encolan el correo. Si el encolado fallara, el usuario puede pedir el reenvío o un código nuevo.
 - **Posible reenvío del mismo correo:** si el Worker se cae justo entre enviar y marcar `Sent`, ese correo se reenvía en la siguiente ejecución.
 - **Enlace de activación:** hoy abre un endpoint de la API (`GET /auth/activate`). Con un frontend, se cambia `App__ActivationUrl` y se usa `POST /auth/activate`. Un antivirus o cliente de correo que abra el enlace antes que el usuario podría consumir el token.
-- **Endpoint temporal:** `POST /test/enqueue-email` existe solo para probar la cola y se elimina más adelante.
 - **Credenciales SMTP para el calificador:** no están en el repositorio. Se entregan por separado (comentario de la entrega en Moodle) y se revocan al terminar la calificación.
 
 ## Pull requests de esta pieza
