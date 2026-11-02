@@ -55,6 +55,7 @@ if (app.Environment.IsDevelopment())
 // Mapeo de endpoints
 app.MapAccessControlEndpoints();
 app.MapPermissionsEndpoints();
+app.MapWheelbyEndpoints();
 
 
 app.Run();

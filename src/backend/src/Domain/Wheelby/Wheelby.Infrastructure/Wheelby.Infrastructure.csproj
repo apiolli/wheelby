@@ -4,13 +4,24 @@
     <ProjectReference Include="..\Wheelby.Application\Wheelby.Application.csproj" />
     <ProjectReference Include="..\Wheelby.Domain\Wheelby.Domain.csproj" />
     <ProjectReference Include="..\Wheelby.Contracts\Wheelby.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Core\Permissions\Permissions.Contracts\Permissions.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Core\AccessControl\AccessControl.Contracts\AccessControl.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="MediatR" Version="12.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <PropertyGroup>
