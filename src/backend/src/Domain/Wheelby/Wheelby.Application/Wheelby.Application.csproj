@@ -3,8 +3,15 @@
   <ItemGroup>
     <ProjectReference Include="..\Wheelby.Domain\Wheelby.Domain.csproj" />
     <ProjectReference Include="..\Wheelby.Contracts\Wheelby.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Core\Permissions\Permissions.Contracts\Permissions.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Core\AccessControl\AccessControl.Contracts\AccessControl.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="12.1.1" />
+    <PackageReference Include="MediatR" Version="12.5.0" />
   </ItemGroup>
 
   <PropertyGroup>
