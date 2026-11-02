@@ -55,6 +55,13 @@ public static class ReservationStateMachine
             new HashSet<ReservationActor> { ReservationActor.Host },
             "El alquiler terminó.",
             static (r, _, utcNow, _) => utcNow >= r.EndDate),
+
+        new(
+            ReservationStatus.Completed,
+            ReservationStatus.InProgress,
+            new HashSet<ReservationActor> { ReservationActor.Host },
+            "Un alquiler completado no puede reiniciarse.",
+            null),
     ];
 
     // RF-NEG-04: transición explícitamente prohibida con su motivo.
@@ -67,7 +74,6 @@ public static class ReservationStateMachine
     public static readonly IReadOnlySet<ReservationStatus> TerminalStates =
         new HashSet<ReservationStatus>
         {
-            ReservationStatus.Completed,
             ReservationStatus.Cancelled
         };
 
