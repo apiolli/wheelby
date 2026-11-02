@@ -22,7 +22,7 @@ public static class ReservationStateMachine
             ReservationStatus.Confirmed,
             new HashSet<ReservationActor> { ReservationActor.Host },
             "El anfitrión evaluó al inquilino.",
-            static (r, _, utcNow, _) => utcNow <= r.StartDate),
+            null),
 
         new(
             ReservationStatus.Pending,
