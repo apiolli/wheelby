@@ -64,7 +64,10 @@ public static class DependencyInjection
         services.AddAuthorizationBuilder()
             .AddPolicy(AccessControlPolicies.RequireAdministrator, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireRole(AccessControlRoles.Administrator));
+                .RequireRole(AccessControlRoles.Administrator))
+            .AddPolicy(AccessControlPolicies.RequireStandard, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireRole(AccessControlRoles.Standard));
 
         return services;
     }
