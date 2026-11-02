@@ -55,6 +55,13 @@ public static class ReservationStateMachine
             new HashSet<ReservationActor> { ReservationActor.Host },
             "El alquiler terminó.",
             static (r, _, utcNow, _) => utcNow >= r.EndDate),
+
+        new(
+            ReservationStatus.InProgress,
+            ReservationStatus.Cancelled,
+            new HashSet<ReservationActor> { ReservationActor.Renter, ReservationActor.Host },
+            "Cancelar un alquiler en curso.",
+            null),
     ];
 
     // RF-NEG-04: transición explícitamente prohibida con su motivo.
@@ -85,10 +92,6 @@ public static class ReservationStateMachine
         if (TerminalStates.Contains(from))
             throw new InvalidReservationTransitionException(
                 $"La reserva en estado {from} es terminal y no admite más transiciones.");
-
-        if (from == ExplicitlyForbidden.From && target == ExplicitlyForbidden.To)
-            throw new InvalidReservationTransitionException(
-                $"Transición {from} → {target} prohibida: {ExplicitlyForbidden.Reason}");
 
         var definition = AllowedTransitions.FirstOrDefault(t => t.From == from && t.To == target);
         if (definition is null)
