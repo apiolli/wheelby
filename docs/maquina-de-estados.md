@@ -1,6 +1,6 @@
 # Máquina de estados — Reserva (Wheelby)
 
-Estructura declarada en la semana 4 (Práctica 1, sección 1.6). Las pruebas llegan en la semana 8.
+Estructura declarada en la semana 4 (Práctica 1, sección 1.6).
 Código: `src/backend/src/Domain/Wheelby/Wheelby.Domain/Reservations/`.
 
 ## Estados (RF-NEG-03)

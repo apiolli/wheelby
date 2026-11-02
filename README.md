@@ -349,8 +349,9 @@ SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "Create
 ## 9. Cómo verificar los criterios
 
 - **Control de acceso y correo por cola** (RF-CA-01 a 22, RF-NOT-08, 09, 12, 13): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/control-acceso/README.md](docs/control-acceso/README.md).
-- **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquina-de-estados/README.md](docs/maquina-de-estados/README.md).
+- **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquina-de-estados.md](docs/maquina-de-estados.md).
 - **Gestión de permisos** (RF-GP-01 a 07, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/gestion-permisos/README.md](docs/gestion-permisos/README.md).
+- **Módulo de negocio Wheelby** (RF-NEG-01 a 06, RD-03, RD-07, RD-08, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/wheelby/README.md](docs/wheelby/README.md).
 
 Atajos útiles para las pruebas:
 
@@ -525,7 +526,8 @@ SELECT * FROM wheelby."Reservations";
 ```
 <raíz del repositorio>/
 ├─ docs/
-│  ├─ maquina-de-estados/README.md   Máquinas de estados de la Reserva y de los Permisos
+│  ├─ maquina-de-estados.md          Máquinas de estados de la Reserva y de los Permisos
+│  ├─ wheelby/README.md              Cómo probar el módulo de negocio Wheelby
 │  ├─ control-acceso/README.md       Cómo verificar cada criterio de Control de acceso
 │  ├─ gestion-permisos/README.md     Cómo verificar cada criterio de Gestión de permisos
 │  └─ bitacora-asignacion-2.md       Bitácora de la sesión con el agente
