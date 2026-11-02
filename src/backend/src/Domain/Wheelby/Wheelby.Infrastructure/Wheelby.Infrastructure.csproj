@@ -24,6 +24,11 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <!-- RD-12: permite al proyecto de pruebas instanciar las clases internas. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Wheelby.Test" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
