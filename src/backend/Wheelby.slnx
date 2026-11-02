@@ -33,5 +33,6 @@
     <Project Path="src/Domain/Wheelby/Wheelby.Contracts/Wheelby.Contracts.csproj" />
     <Project Path="src/Domain/Wheelby/Wheelby.Domain/Wheelby.Domain.csproj" />
     <Project Path="src/Domain/Wheelby/Wheelby.Infrastructure/Wheelby.Infrastructure.csproj" />
+    <Project Path="src/Domain/Wheelby/Wheelby.Test/Wheelby.Test.csproj" />
   </Folder>
 </Solution>
