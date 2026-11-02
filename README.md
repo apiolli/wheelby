@@ -2,7 +2,7 @@
 
 Marketplace de alquiler de vehículos entre particulares. Backend en C# (.NET 10), monolito modular con Clean Architecture, CQRS y DDD, sobre PostgreSQL.
 
-Programación III · ITLA · 2026-C-3 · Práctica 2
+Programación III · ITLA · 2026-C-3 · Práctica 3
 
 Este documento explica, paso a paso, cómo clonar, configurar y ejecutar el backend. Para comprobar cada criterio de aceptación, ver la sección [Cómo verificar los criterios](#9-cómo-verificar-los-criterios).
 
@@ -17,7 +17,7 @@ Este documento explica, paso a paso, cómo clonar, configurar y ejecutar el back
 5. [Secretos de la aplicación](#5-secretos-de-la-aplicación)
 6. [Ejecutar la API](#6-ejecutar-la-api)
 7. [Ejecutar el envío de correos (Worker)](#7-ejecutar-el-envío-de-correos-worker)
-8. [Control de acceso: los cuatro frentes](#8-control-de-acceso-los-cuatro-frentes)
+8. [Los cinco frentes: Control de acceso y Gestión de permisos](#8-los-cinco-frentes-control-de-acceso-y-gestión-de-permisos)
 9. [Cómo verificar los criterios](#9-cómo-verificar-los-criterios)
    - [Pruebas](#pruebas)
    - [Defectos](#defectos)
@@ -50,7 +50,7 @@ Los comandos de este documento están escritos para **PowerShell (Windows)**. Do
 ```bash
 git clone <URL del repositorio>
 cd <carpeta del repositorio>
-git checkout practica-2
+git checkout practica-3
 ```
 
 ---
@@ -233,7 +233,9 @@ El Worker procesa los pendientes **en una sola pasada y termina**. Su última l�
 
 ---
 
-## 8. Control de acceso: los cuatro frentes
+## 8. Los cinco frentes: Control de acceso y Gestión de permisos
+
+Los frentes 1 a 4 son de Control de acceso y el frente 5 es de Gestión de permisos. El negocio Wheelby (publicar vehículos solo tras la aprobación del permiso `wheelby.publish-vehicle`, buscar, reservar y el ciclo de la reserva) se prueba con los pasos de [docs/wheelby/README.md](docs/wheelby/README.md).
 
 Con la API corriendo (sección 6), en Scalar (`http://localhost:5299/scalar/v1`). Para usar un token en Scalar: copia el `accessToken` de la respuesta de `POST /auth/login` y pégalo en el botón de autorización (esquema Bearer).
 
@@ -344,6 +346,73 @@ SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "Create
 4. `POST /auth/login` con la contraseña **anterior** (`Clave1234`) → **401**. Con la **nueva** (`Nueva1234`) → **200**.
 5. Repetir el paso 3 con el mismo código → **400** (el código es de un solo uso).
 
+### Frente 5: Gestión de permisos
+
+Se necesitan dos tokens: el **token de Estándar** (`POST /auth/login` con el usuario de los frentes 1 a 4) y el **token de Administrador** (`POST /auth/login` con `Admin:Email` y `Admin:Password`). En cada paso se indica cuál pegar en Scalar. Detalle de cada criterio y consultas SQL en [docs/gestion-permisos/README.md](docs/gestion-permisos/README.md).
+
+| Ruta | Sesión | Cuerpo de la petición | Respuesta correcta |
+|---|---|---|---|
+| `POST /permissions/requests` | Sí | `{ "permissionCode": "core.demo-action" }` | 201 con el `id` de la solicitud |
+| `GET /permissions/requests/mine` | Sí | — | 200, solo las solicitudes del usuario |
+| `POST /permissions/demo-action` | Sí, con la concesión | — | 200 con permiso, 403 sin permiso |
+| `GET /admin/permissions/requests?page=1&pageSize=20` | `Administrator` | — | 200, solicitudes pendientes de todos |
+| `POST /admin/permissions/requests/{id}/approve` | `Administrator` | — | 204 |
+| `POST /admin/permissions/requests/{id}/reject` | `Administrator` | `{ "reason": "..." }` | 204 |
+
+**Crear y aprobar una solicitud**
+
+1. Con el **token de Estándar**, `POST /permissions/demo-action` → **403**: todavía no tiene el permiso.
+2. Con el **token de Estándar**, `POST /permissions/requests`:
+
+   ```json
+   { "permissionCode": "core.demo-action" }
+   ```
+
+   → **201** con el `id` de la solicitud (anótalo como `<id 1>`). `GET /permissions/requests/mine` la muestra en estado `Pending`.
+3. Con el **token de Administrador**, `GET /admin/permissions/requests?page=1&pageSize=20` → **200**, aparece `<id 1>`.
+4. Con el **token de Administrador**, `POST /admin/permissions/requests/<id 1>/approve` → **204**. La solicitud queda `Applied` con el aprobador y la fecha.
+5. Con el **token de Estándar**, `POST /permissions/demo-action` → **200** `{ "message": "Acción de demostración ejecutada." }`.
+
+**Aprobar dos veces da 409 y el estado no cambia**
+
+6. Con el **token de Administrador**, repetir `POST /admin/permissions/requests/<id 1>/approve` → **409**. Con el **token de Estándar**, `GET /permissions/requests/mine` sigue mostrando `<id 1>` en `Applied`.
+
+**Rechazar otra solicitud con motivo**
+
+7. Con el **token de Estándar**, `POST /permissions/requests`:
+
+   ```json
+   { "permissionCode": "wheelby.publish-vehicle" }
+   ```
+
+   → **201** (anótalo como `<id 2>`).
+8. Con el **token de Administrador**, `POST /admin/permissions/requests/<id 2>/reject` **sin motivo**:
+
+   ```json
+   { "reason": "" }
+   ```
+
+   → **400** "El motivo del rechazo es obligatorio." y la solicitud **sigue `Pending`**.
+9. Con el **token de Administrador**, `POST /admin/permissions/requests/<id 2>/reject` con motivo:
+
+   ```json
+   { "reason": "No corresponde al perfil del usuario" }
+   ```
+
+   → **204**. `GET /permissions/requests/mine` (token de Estándar) muestra `<id 2>` en `Rejected`.
+
+**Transición fuera de la tabla: aprobar una rechazada da 409 y el estado no cambia**
+
+10. Con el **token de Administrador**, `POST /admin/permissions/requests/<id 2>/approve` → **409**. `<id 2>` sigue en `Rejected`.
+
+Comprobación en la base (opcional):
+
+```sql
+SELECT "Id", "PermissionCode", "Status", "ApproverId", "ResolvedAt", "RejectionReason"
+FROM permissions."PermissionRequests"
+ORDER BY "CreatedAt" DESC;
+```
+
 ---
 
 ## 9. Cómo verificar los criterios
@@ -398,15 +467,43 @@ cd src/backend
 dotnet test
 ```
 
-`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta las **71 pruebas** de `Permissions.Test` (una prueba con varios casos cuenta una vez por caso). Resultado esperado: `Failed: 0, Passed: 71`. No levantan la API ni necesitan PostgreSQL ni Docker.
+`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta **165 pruebas** en dos proyectos (una prueba con varios casos cuenta una vez por caso):
+
+| Proyecto | Carpeta | Pruebas | Resultado esperado |
+|---|---|---|---|
+| `Permissions.Test` | `src/backend/src/Core/Permissions/Permissions.Test/` | 71 | `Failed: 0, Passed: 71` |
+| `Wheelby.Test` | `src/backend/src/Domain/Wheelby/Wheelby.Test/` | 94 | `Failed: 0, Passed: 94` |
+
+**No necesitan Docker ni PostgreSQL** y no levantan la API: la base se sustituye por EF InMemory. La primera vez, `dotnet test` restaura los paquetes automáticamente; no hace falta instalar `dotnet-ef`.
+
+Todas usan fechas y reloj fijos, siguen Arrange/Act/Assert, verifican un solo comportamiento, son independientes entre sí (cada una crea sus dobles y, con EF InMemory, una base con nombre único) y llevan el ID del requisito al inicio del nombre (`RF_GP_0X_...`, `RF_NEG_0X_...`).
+
+### Wheelby.Test (Práctica 3)
+
+Abreviaturas: **D** = `Domain/`, **A** = `Application/`, **I** = `Infrastructure/`.
+
+- **Máquina de estados de la reserva (D, `ReservationStateMachineTests.cs`)**, con `Reservation` y `ReservationStateMachine` reales:
+  - una prueba por cada una de las **5 filas permitidas** de [docs/maquina-de-estados.md](docs/maquina-de-estados.md) (estado resultante y, al cancelar el anfitrión, el motivo guardado);
+  - cada fila con **actor incorrecto** y con **guarda no cumplida** (por ejemplo `RF_NEG_03_Pending_a_Confirmed_despues_de_StartDate_guarda_no_cumplida_se_rechaza`): rechazo y el estado no cambia;
+  - la **prohibida explícita** `InProgress → Cancelled` con cada actor (`RF_NEG_04_InProgress_a_Cancelled_con_Host_es_prohibida_explicitamente`, `..._con_Renter_...`);
+  - los **terminales** `Completed` y `Cancelled` hacia cada estado y con cada actor (`RF_NEG_05_desde_estado_terminal_cualquier_transicion_se_rechaza`);
+  - la **matriz de pares fuera de la tabla**, escrita a mano en la prueba y nunca leída de `AllowedTransitions` (`RF_NEG_04_par_fuera_de_la_tabla_se_rechaza_y_estado_no_cambia`);
+  - la **prueba estructural de la tabla** (`RF_NEG_03_AllowedTransitions_contiene_exactamente_las_cinco_filas_de_la_tabla`, `RF_NEG_05_TerminalStates_es_exactamente_Completed_y_Cancelled`);
+  - la creación de la reserva (RD-07).
+- **Casos de uso (A)**, handlers reales con dobles hechos a mano de sus puertos (reloj fijo, usuario actual mutable, repositorios en memoria, unidad de trabajo que cuenta los guardados y un `IPermissionChecker` falso solo para estas pruebas): publicar (F1, incluido `RF_NEG_02_F1_sin_permiso_lanza_403_y_no_guarda_nada`), buscar (F2), solicitar (F3), confirmar y rechazar (F4), el ciclo del alquiler con su precedencia de errores (F5) y los listados (F6).
+- **Rutas (I, `EndpointRouteTests.cs`)**: construye la aplicación **sin arrancarla** y comprueba que las rutas de `/vehicles` y `/reservations` exigen `RequireStandard`, las de `/admin/reservations` exigen `RequireAdministrator` y ninguna queda sin autorización (RF-NEG-06).
+- **Integración con Gestión de permisos (I, `PermissionsIntegrationTests.cs`)**: usa los módulos Permissions y Wheelby **reales** con su cableado de producción (`AddPermissions` y `AddWheelby`, MediatR, validadores, repositorios y el catálogo). Solo se sustituyen la base (EF InMemory), el usuario actual y el reloj; **no** hay `IPermissionChecker` falso. Escenarios:
+  - `RF_NEG_06_integracion_publicar_sin_aprobacion_es_rechazado_y_despues_de_aprobar_se_permite`: un Estándar no puede publicar (403), tampoco tras solicitar el permiso; un Administrador aprueba y entonces publica, queda un vehículo suyo y la solicitud queda `Applied`.
+  - `RF_NEG_06_integracion_si_el_administrador_rechaza_publicar_sigue_rechazado`.
+  - Catálogo: solicitar `wheelby.publish-vehicle` es aceptado.
+
+### Permissions.Test (Práctica 2)
 
 - **Dominio:** reglas de `PermissionRequest` y la matriz completa de transiciones de `PermissionRequestStateMachine` (32 combinaciones de origen, destino y actor, más la tabla declarada exacta).
-- **Casos de uso:** los handlers de crear, listar, aprobar y rechazar se prueban con dobles de sus puertos: reloj fijo, usuario actual fijo, catálogo fijo, repositorios en memoria y unidad de trabajo que cuenta los guardados. Cada prueba crea sus propios dobles, sin estado compartido.
+- **Casos de uso:** los handlers de crear, listar, aprobar y rechazar se prueban con dobles de sus puertos: reloj fijo, usuario actual fijo, catálogo fijo, repositorios en memoria y unidad de trabajo que cuenta los guardados.
 - **Infraestructura:** `PermissionRequestReadStore` y `PermissionChecker` se prueban sobre `PermissionsDbContext` con EF InMemory, con un nombre de base único por prueba.
-- Todas usan fechas fijas, siguen Arrange/Act/Assert, verifican un solo comportamiento y llevan el ID del requisito al inicio del nombre (`RF_GP_0X_...`).
-- La primera vez, `dotnet test` restaura los paquetes automáticamente. No hace falta instalar `dotnet-ef` ni Docker para ejecutar las pruebas.
 
-### Pruebas por requisito
+#### Pruebas por requisito de Gestión de permisos
 
 Carpeta: `src/backend/src/Core/Permissions/Permissions.Test/`. Abreviaturas: **D** = `Domain/`, **A** = `Application/`, **I** = `Infrastructure/`.
 
@@ -423,6 +520,31 @@ Carpeta: `src/backend/src/Core/Permissions/Permissions.Test/`. Abreviaturas: **D
 ---
 
 ## Defectos
+
+### Práctica 3
+
+Cada etiqueta `practica-3-defecto-N` es **un solo commit cuyo padre es `practica-3`**. Modifica únicamente código de producción de Wheelby, nunca archivos de pruebas, y compila. Su mensaje indica el archivo y la línea. Las líneas son las de `practica-3`.
+
+Para comprobar un defecto:
+
+```bash
+git checkout practica-3-defecto-1   # cambiar el número
+cd src/backend
+dotnet test                         # debe reportar las pruebas fallidas de la tabla
+```
+
+En `practica-3` pasan todas (165).
+
+Ruta común: `src/backend/src/Domain/Wheelby/`.
+
+| Etiqueta | Requisito | Archivo y línea | Defecto sembrado | Pruebas que fallan (lo que comprueban) |
+|---|---|---|---|---|
+| `practica-3-defecto-1` | RF-NEG-04 | `Wheelby.Domain/Reservations/ReservationStateMachine.cs`, línea 58 (fila nueva) y líneas 89 a 91 | La primera transición prohibida, `InProgress → Cancelled`, pasa a permitida: se agrega la fila (Renter y Host, sin guarda) y se elimina el bloque de `Validate` que rechaza la prohibida explícita, porque sin ese segundo cambio la fila nueva queda enmascarada. Un alquiler en curso se puede cancelar | **6:** `RF_NEG_04_InProgress_a_Cancelled_con_Host_es_prohibida_explicitamente` y `RF_NEG_04_InProgress_a_Cancelled_con_Renter_es_prohibida_explicitamente` (D), `RF_NEG_04_par_fuera_de_la_tabla_se_rechaza_y_estado_no_cambia` en los casos InProgress → Cancelled con Host y con Renter (D), `RF_NEG_03_AllowedTransitions_contiene_exactamente_las_cinco_filas_de_la_tabla` (D) y `RF_NEG_02_F5_cancelar_alquiler_en_curso_lanza_409` (A). Comprueban que cancelar un alquiler en curso se rechaza, que el estado no cambia y que la tabla tiene exactamente cinco filas |
+| `practica-3-defecto-2` | RF-NEG-05 | `Wheelby.Domain/Reservations/ReservationStateMachine.cs`, línea 58 (fila nueva) y línea 70 | El terminal `Completed` deja de serlo: se agrega la fila `Completed → InProgress` (Host, sin guarda) y se quita `Completed` de `TerminalStates`, porque sin ese segundo cambio el chequeo terminal (línea 85) rechaza antes. Un alquiler completado se puede reabrir | **4:** `RF_NEG_05_desde_estado_terminal_cualquier_transicion_se_rechaza` en los casos Completed → InProgress con Host y con Renter, `RF_NEG_05_TerminalStates_es_exactamente_Completed_y_Cancelled` y `RF_NEG_03_AllowedTransitions_contiene_exactamente_las_cinco_filas_de_la_tabla` (D). Comprueban que del terminal no se sale y que la tabla y los terminales declarados son exactamente los del documento |
+| `practica-3-defecto-3` | RF-NEG-03 | `Wheelby.Domain/Reservations/ReservationStateMachine.cs`, línea 25 | Se elimina la condición de la primera transición con condición, `Pending → Confirmed`: `static (r, _, utcNow, _) => utcNow <= r.StartDate` pasa a `null`. Se puede confirmar después de la fecha de inicio | **1:** `RF_NEG_03_Pending_a_Confirmed_despues_de_StartDate_guarda_no_cumplida_se_rechaza` (D). Comprueba que confirmar después de `StartDate` se rechaza y el estado sigue `Pending` |
+| `practica-3-defecto-4` | RF-NEG-06 | `Wheelby.Application/Features/Commands/PublishVehicle/PublishVehicleCommandHandler.cs`, líneas 23 a 30 | Se elimina la consulta a Gestión de permisos (`IPermissionChecker.HasPermissionAsync`) y su `ForbiddenException`: cualquier Estándar publica sin que le aprueben `wheelby.publish-vehicle` | **3:** la prueba de integración `RF_NEG_06_integracion_publicar_sin_aprobacion_es_rechazado_y_despues_de_aprobar_se_permite` (I), que comprueba que publicar se rechaza mientras la solicitud no está aprobada; también `RF_NEG_06_integracion_si_el_administrador_rechaza_publicar_sigue_rechazado` (I) y `RF_NEG_02_F1_sin_permiso_lanza_403_y_no_guarda_nada` (A) |
+
+### Práctica 2
 
 Variante A. Cada etiqueta `practica-2-defecto-N` es un solo commit cuyo padre es `practica-2`. Modifica únicamente código de producción de Gestión de permisos, nunca archivos de pruebas, y su mensaje indica el archivo y la línea. Las líneas son las de `practica-2`.
 
@@ -546,5 +668,6 @@ SELECT * FROM wheelby."Reservations";
          │  ├─ Notifications/        Cola de correos
          │  └─ Permissions/          Gestión de permisos (incluye Permissions.Test)
          └─ Domain/
-            └─ Wheelby/              Módulo de negocio (Reserva y su máquina de estados)
+            └─ Wheelby/              Módulo de negocio: vehículos, reservas y su máquina de estados
+               └─ Wheelby.Test/      Pruebas del negocio, de rutas y de integración con permisos
 ```
