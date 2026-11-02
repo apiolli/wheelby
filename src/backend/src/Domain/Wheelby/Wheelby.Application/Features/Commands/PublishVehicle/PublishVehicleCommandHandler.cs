@@ -20,15 +20,6 @@ internal sealed class PublishVehicleCommandHandler(
         PublishVehicleCommand command,
         CancellationToken cancellationToken)
     {
-        // F1: publicar exige el permiso wheelby.publish-vehicle, concedido por Gestión de permisos.
-        var hasPermission = await permissionChecker.HasPermissionAsync(
-            currentUser.Id,
-            WheelbyPermissionCodes.PublishVehicle,
-            cancellationToken);
-
-        if (!hasPermission)
-            throw new ForbiddenException("No tienes el permiso wheelby.publish-vehicle para publicar vehículos.");
-
         if (await vehicles.PlateExistsAsync(command.Plate, cancellationToken))
             throw new ConflictException("Ya existe un vehículo con esa placa.");
 
