@@ -19,10 +19,13 @@ internal sealed class ReservationRepository(WheelbyDbContext db) : IReservationR
         Guid? excludeReservationId = null,
         CancellationToken cancellationToken = default)
     {
+        // Arreglo local: EF Core no traduce IReadOnlySet.Contains a SQL.
+        var blocking = BlockingReservationStates.States.ToArray();
+
         var query = db.Reservations
             .AsNoTracking()
             .Where(r => r.VehicleId == vehicleId
-                && BlockingReservationStates.States.Contains(r.Status)
+                && blocking.Contains(r.Status)
                 && start < r.EndDate
                 && end > r.StartDate);
 

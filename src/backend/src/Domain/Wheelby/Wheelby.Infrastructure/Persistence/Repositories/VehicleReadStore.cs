@@ -16,12 +16,15 @@ internal sealed class VehicleReadStore(WheelbyDbContext db) : IVehicleReadStore
         int pageSize,
         CancellationToken cancellationToken)
     {
+        // Arreglo local: EF Core no traduce IReadOnlySet.Contains a SQL.
+        var blocking = BlockingReservationStates.States.ToArray();
+
         var query = db.Vehicles
             .AsNoTracking()
             .Where(v => v.OwnerId != excludeOwnerId
                 && !db.Reservations
                     .Where(r => r.VehicleId == v.Id
-                        && BlockingReservationStates.States.Contains(r.Status)
+                        && blocking.Contains(r.Status)
                         && from < r.EndDate
                         && to > r.StartDate)
                     .Any());
