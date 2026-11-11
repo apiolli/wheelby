@@ -5,6 +5,7 @@ using AccessControl.Infrastructure;
 using Notifications.Infrastructure;
 using Permissions.Infrastructure;
 using Wheelby.Infrastructure;
+using Documents.Infrastructure;
 using Host.WebAPI.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,7 @@ builder.Services.AddAccessControl(builder.Configuration);
 builder.Services.AddNotifications(builder.Configuration);
 builder.Services.AddPermissions(builder.Configuration);
 builder.Services.AddWheelby(builder.Configuration);
+builder.Services.AddDocuments(builder.Configuration);
 
 var app = builder.Build();
 
@@ -41,6 +43,7 @@ await app.Services.ApplyNotificationsMigrationsAsync();
 await app.Services.ApplyAccessControlMigrationsAsync();
 await app.Services.ApplyPermissionsMigrationsAsync();
 await app.Services.ApplyWheelbyMigrationsAsync();
+await app.Services.ApplyDocumentsMigrationsAsync();
 await app.Services.SeedAdministratorAsync();
 
 if (app.Environment.IsDevelopment())
@@ -56,6 +59,7 @@ if (app.Environment.IsDevelopment())
 app.MapAccessControlEndpoints();
 app.MapPermissionsEndpoints();
 app.MapWheelbyEndpoints();
+app.MapDocumentsEndpoints();
 
 
 app.Run();
