@@ -32,7 +32,7 @@ Si falta una variable obligatoria, la aplicación que la usa **no arranca** y el
 | -------- | ------------- | -------------- | ------------ |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Sí | Crean la base de datos del contenedor y el puerto publicado | Docker Compose |
 | `ConnectionStrings__Postgres` | **Sí** | Conexión a la base donde persisten usuarios, sesiones y correos en cola | API y Worker |
-| `App__ActivationUrl` | **Sí** | URL a la que apunta el enlace del correo de activación (hoy, el endpoint `GET /auth/activate` de la API: `http://localhost:5299/auth/activate`) | API |
+| `App__ActivationUrl` | **Sí** | URL a la que apunta el enlace del correo de activación (hoy, el endpoint `GET /auth/activate` de la API: `http://localhost:8080/auth/activate`) | API |
 | `Jwt__Key` | **Sí** | Clave secreta con la que se firma la credencial de sesión (mínimo 32 caracteres) | API |
 | `Jwt__Issuer` | **Sí** | Emisor que se escribe y se exige en la credencial | API |
 | `Jwt__Audience` | **Sí** | Destinatario que se escribe y se exige en la credencial | API |
@@ -56,7 +56,7 @@ Notas:
 - Secretos de la API (ejecutar desde `src/backend`; usa el puerto de tu API, que aparece en la consola al arrancar):
 
   ```bash
-  dotnet user-secrets set "App:ActivationUrl" "http://localhost:5299/auth/activate" --project src/Host/Host.WebAPI
+  dotnet user-secrets set "App:ActivationUrl" "http://localhost:8080/auth/activate" --project src/Host/Host.WebAPI
 
   # Genera una clave aleatoria y no la compartas ni la subas al repositorio (PowerShell)
   $key = [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
@@ -251,7 +251,7 @@ POST /auth/login
 Para las peticiones "construidas a mano" (sin pasar por Scalar) se puede usar PowerShell; ajusta el puerto al de tu API. Un 403 hace que `Invoke-RestMethod` lance una excepción: el código de estado aparece en el error.
 
 ```powershell
-Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/role" `
+Invoke-RestMethod -Method Patch -Uri "http://localhost:8080/admin/users/<id>/role" `
   -Headers @{ Authorization = "Bearer <token de un usuario Estándar>" } `
   -ContentType "application/json" -Body '{"role":"Administrator"}'
 ```

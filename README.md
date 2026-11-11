@@ -13,7 +13,7 @@ Programación III · ITLA · 2026-C-3 · Práctica 4
 1. [Requisitos](#1-requisitos)
 2. [Contenedor](#2-contenedor)
 3. [Correos de activación y recuperación](#3-correos-de-activación-y-recuperación)
-4. [Los cinco frentes: Control de acceso y Gestión de permisos](#4-los-cinco-frentes-control-de-acceso-y-gestión-de-permisos)
+4. [Los seis frentes](#4-los-seis-frentes)
 5. [Manejador de documentos](#5-manejador-de-documentos)
 6. [API externa](#6-api-externa)
 7. [Cómo verificar los criterios](#7-cómo-verificar-los-criterios)
@@ -138,11 +138,11 @@ Los correos no se envían dentro de la petición: quedan en una cola de la base 
 
 ---
 
-## 4. Los cinco frentes: Control de acceso y Gestión de permisos
-
-Los frentes 1 a 4 son de Control de acceso y el frente 5 es de Gestión de permisos. El negocio Wheelby se prueba con los pasos de [docs/wheelby/README.md](docs/wheelby/README.md).
+## 4. Los seis frentes
 
 Con el proyecto corriendo (sección 2), en Scalar (`http://localhost:8080/scalar/v1`). Para usar un token en Scalar: copia el `accessToken` de la respuesta de `POST /auth/login` y pégalo en el botón de autorización (esquema Bearer).
+
+Los frentes 1 a 4 son de Control de acceso, el 5 de Gestión de permisos y el 6 del negocio Wheelby. El detalle de cada funcionalidad del negocio está en [docs/wheelby/README.md](docs/wheelby/README.md).
 
 ### Roles
 
@@ -313,6 +313,53 @@ SELECT "Id", "PermissionCode", "Status", "ApproverId", "ResolvedAt", "RejectionR
 FROM permissions."PermissionRequests"
 ORDER BY "CreatedAt" DESC;
 ```
+
+### Frente 6: el negocio, una operación válida y la transición prohibida
+
+Hacen falta tres tokens: **anfitrión** (un Estándar), **inquilino** (otro Estándar, registrado y activado como en el frente 1) y **Administrador**.
+
+**Operación válida: publicar, reservar y confirmar**
+
+1. Con el **token de anfitrión**, `POST /permissions/requests`:
+
+   ```json
+   { "permissionCode": "wheelby.publish-vehicle" }
+   ```
+
+   → **201** con el `id` de la solicitud. Con el **token de Administrador**, `POST /admin/permissions/requests/<id>/approve` → **204**.
+2. Con el **token de anfitrión**, `POST /vehicles`:
+
+   ```json
+   { "brand": "Toyota", "model": "Corolla", "year": 2020, "plate": "ABC-123", "pricePerDay": 2500 }
+   ```
+
+   → **201** con el `id` del vehículo (`<vehículo>`). El precio está en pesos dominicanos (DOP).
+3. Con el **token de inquilino**, `POST /reservations`:
+
+   ```json
+   { "vehicleId": "<vehículo>", "start": "2030-01-10T10:00:00Z", "end": "2030-01-12T10:00:00Z" }
+   ```
+
+   → **201** con el `id` de la reserva (`<reserva>`), en estado `Pending`.
+4. Con el **token de anfitrión**, `POST /reservations/<reserva>/confirm` → **204**. La reserva pasa a `Confirmed`.
+
+**Transición prohibida: cancelar un alquiler en curso (`InProgress → Cancelled`)**
+
+5. Para iniciar el alquiler sin esperar a 2030, mueve las fechas de la reserva alrededor del momento actual (en bash; en PowerShell abre `psql` como en la sección 3 y escribe la consulta):
+
+   ```bash
+   docker compose exec postgres psql -U wheelby -d wheelby -c "UPDATE wheelby.\"Reservations\" SET \"StartDate\" = now() - interval '1 hour', \"EndDate\" = now() + interval '1 day' WHERE \"Id\" = '<reserva>';"
+   ```
+
+6. Con el **token de anfitrión**, `POST /reservations/<reserva>/start` → **204**. La reserva pasa a `InProgress`.
+7. Con el **token de inquilino**, `POST /reservations/<reserva>/cancel`:
+
+   ```json
+   { "reason": "Cambio de planes" }
+   ```
+
+   → **409** "Transición InProgress → Cancelled prohibida: Un alquiler en curso no se cancela; debe completarse."
+8. Con el **token de inquilino**, `GET /reservations/mine?as=renter&page=1&pageSize=20` → la reserva sigue en `InProgress`: el estado no cambió.
 
 ---
 

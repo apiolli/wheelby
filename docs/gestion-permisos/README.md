@@ -98,7 +98,7 @@ Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` 
   Con el **token de Estándar**, la misma ruta responde **403**:
 
   ```powershell
-  Invoke-RestMethod -Method Get -Uri "http://localhost:5299/admin/permissions/requests?page=1&pageSize=20" `
+  Invoke-RestMethod -Method Get -Uri "http://localhost:8080/admin/permissions/requests?page=1&pageSize=20" `
     -Headers @{ Authorization = "Bearer <token de un usuario Estándar>" }
   ```
 
