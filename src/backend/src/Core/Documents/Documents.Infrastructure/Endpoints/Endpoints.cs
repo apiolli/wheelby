@@ -3,6 +3,7 @@ using Documents.Application.Features.DownloadDocument;
 using Documents.Application.Features.ListDocuments;
 using Documents.Application.Features.UploadDocument;
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -22,7 +23,7 @@ public static class DocumentsEndpoints
 
         documents.MapPost("", async (
             IFormFile? file,
-            ISender sender,
+            [FromServices] ISender sender,
             CancellationToken ct) =>
         {
             if (file is null)
@@ -41,7 +42,7 @@ public static class DocumentsEndpoints
         documents.MapGet("", async (
             int? page,
             int? pageSize,
-            ISender sender,
+            [FromServices] ISender sender,
             CancellationToken ct)
             => Results.Ok(await sender.Send(
                 new ListDocumentsQuery(page ?? 1, pageSize ?? 20),
@@ -50,7 +51,7 @@ public static class DocumentsEndpoints
         documents.MapGet("/{id:guid}/content", async (
             Guid id,
             HttpContext http,
-            ISender sender,
+            [FromServices] ISender sender,
             CancellationToken ct) =>
         {
             var document = await sender.Send(new DownloadDocumentQuery(id), ct);
@@ -65,7 +66,7 @@ public static class DocumentsEndpoints
 
         documents.MapDelete("/{id:guid}", async (
             Guid id,
-            ISender sender,
+            [FromServices] ISender sender,
             CancellationToken ct) =>
         {
             await sender.Send(new DeleteDocumentCommand(id), ct);
