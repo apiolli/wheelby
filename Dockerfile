@@ -41,6 +41,12 @@ COPY src/backend/ ./
 RUN dotnet publish src/Host/Host.WebAPI -c Release -o /out/api --no-restore \
  && dotnet publish src/Host/Host.Worker -c Release -o /out/worker --no-restore
 
+# ---- test ----
+# Pruebas automáticas sin instalar .NET: docker build --target test .
+# Las etapas api y worker no dependen de esta, así que compose no la ejecuta.
+FROM build AS test
+RUN dotnet test Wheelby.slnx
+
 # ---- api ----
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS api
 WORKDIR /app
