@@ -2,242 +2,144 @@
 
 Marketplace de alquiler de vehículos entre particulares. Backend en C# (.NET 10), monolito modular con Clean Architecture, CQRS y DDD, sobre PostgreSQL.
 
-Programación III · ITLA · 2026-C-3 · Práctica 3
+Programación III · ITLA · 2026-C-3 · Práctica 4
 
-Este documento explica, paso a paso, cómo clonar, configurar y ejecutar el backend. Para comprobar cada criterio de aceptación, ver la sección [Cómo verificar los criterios](#9-cómo-verificar-los-criterios).
+**Todo el proyecto corre en contenedores**: PostgreSQL, la API y el Worker de correos se levantan con un solo comando, `docker compose up --build`, desde la raíz del repositorio. No hace falta instalar .NET ni PostgreSQL. Para comprobar cada criterio de aceptación, ver [Cómo verificar los criterios](#5-cómo-verificar-los-criterios).
 
 ---
 
 ## Índice
 
 1. [Requisitos](#1-requisitos)
-2. [Obtener el código](#2-obtener-el-código)
-3. [Carpeta de trabajo](#3-carpeta-de-trabajo)
-4. [Base de datos con Docker](#4-base-de-datos-con-docker)
-5. [Secretos de la aplicación](#5-secretos-de-la-aplicación)
-6. [Ejecutar la API](#6-ejecutar-la-api)
-7. [Ejecutar el envío de correos (Worker)](#7-ejecutar-el-envío-de-correos-worker)
-8. [Los cinco frentes: Control de acceso y Gestión de permisos](#8-los-cinco-frentes-control-de-acceso-y-gestión-de-permisos)
-9. [Cómo verificar los criterios](#9-cómo-verificar-los-criterios)
+2. [Contenedor](#2-contenedor)
+3. [Correos de activación y recuperación](#3-correos-de-activación-y-recuperación)
+4. [Los cinco frentes: Control de acceso y Gestión de permisos](#4-los-cinco-frentes-control-de-acceso-y-gestión-de-permisos)
+5. [Cómo verificar los criterios](#5-cómo-verificar-los-criterios)
    - [Pruebas](#pruebas)
    - [Defectos](#defectos)
-10. [Variables de configuración](#10-variables-de-configuración)
-11. [Ver los datos en PostgreSQL](#11-ver-los-datos-en-postgresql)
-12. [Problemas frecuentes](#12-problemas-frecuentes)
-13. [Estructura del repositorio](#13-estructura-del-repositorio)
+6. [Variables de configuración](#6-variables-de-configuración)
+7. [Ver los datos en PostgreSQL](#7-ver-los-datos-en-postgresql)
+8. [Problemas frecuentes](#8-problemas-frecuentes)
+9. [Estructura del repositorio](#9-estructura-del-repositorio)
 
 ---
 
 ## 1. Requisitos
 
-| Herramienta     | Versión                                        | Cómo comprobarla                            |
-| --------------- | ---------------------------------------------- | ------------------------------------------- |
-| Git             | cualquiera reciente                            | `git --version`                             |
-| .NET SDK        | **10.0** o superior                            | `dotnet --version` (debe empezar por `10.`) |
-| Docker Desktop  | con Docker Compose v2                          | `docker version` y `docker compose version` |
-| Una cuenta SMTP | por ejemplo Gmail con contraseña de aplicación | ver sección 5                               |
+| Herramienta    | Versión               | Cómo comprobarla                            |
+| -------------- | --------------------- | ------------------------------------------- |
+| Git            | cualquiera reciente   | `git --version`                             |
+| Docker Desktop | con Docker Compose v2 | `docker version` y `docker compose version` |
 
+- **Solo Docker.** No hace falta instalar .NET, PostgreSQL ni `dotnet-ef`: la API y el Worker se compilan dentro de la imagen y la API crea las tablas sola al arrancar.
 - **Docker Desktop debe estar abierto y en estado "running"** antes de los pasos siguientes.
-- **No hace falta** instalar PostgreSQL ni la herramienta `dotnet-ef`: la base corre en Docker y la aplicación crea las tablas sola al arrancar.
-- Opcional: un cliente de PostgreSQL (DBeaver, pgAdmin) para ver los datos.
+- Opcional: credenciales SMTP para que los correos lleguen de verdad (sección 2.3) y una clave de ExchangeRate-API para convertir precios.
 
-Los comandos de este documento están escritos para **PowerShell (Windows)**. Donde el comando cambia en macOS o Linux, se indica.
+Los comandos se muestran para **PowerShell (Windows)** y, donde cambian, para **bash** (Git Bash, macOS o Linux).
 
 ---
 
-## 2. Obtener el código
+## 2. Contenedor
+
+### 2.1 Obtener el código
 
 ```bash
 git clone <URL del repositorio>
 cd <carpeta del repositorio>
-git checkout practica-3
+git checkout practica-4
 ```
 
----
+**Todos los comandos de este documento se ejecutan desde la raíz del repositorio**, donde están `docker-compose.yml`, `Dockerfile` y `.env.example`.
 
-## 3. Carpeta de trabajo
+### 2.2 Crear el archivo `.env`
 
-**Todos los comandos de las secciones 4 a 8 se ejecutan desde la carpeta `src/backend`**, que es donde están `Wheelby.slnx`, `docker-compose.yml` y `.env.example`.
+`.env` es la **única fuente de configuración**: Docker Compose lo lee y se lo entrega a la API y al Worker. Se crea copiando la plantilla:
 
-Desde la raíz del repositorio:
+```powershell
+Copy-Item .env.example .env
+```
 
 ```bash
-cd src/backend
+cp .env.example .env
 ```
 
-Comprobación: este comando debe listar los tres archivos.
+Con los valores de ejemplo **la aplicación arranca**. `.env` está en `.gitignore` y en `.dockerignore`: nunca se sube al repositorio ni entra en la imagen.
 
-```powershell
-ls Wheelby.slnx, docker-compose.yml, .env.example
+### 2.3 Credenciales SMTP (opcional)
+
+Para que los correos de activación y de recuperación lleguen de verdad, abre `.env` y reemplaza las líneas `Smtp__*` por las credenciales que van **en el comentario de la entrega en Moodle**. Sin ellas todo funciona igual y los correos se leen de la base (sección 3).
+
+### 2.4 Levantar el proyecto
+
+```bash
+docker compose up --build
 ```
 
-Si alguno falta, no estás en la carpeta correcta.
+La primera vez descarga las imágenes y compila (unos minutos). Arrancan tres servicios:
+
+| Servicio   | Qué hace                                                                 | Puerto publicado |
+| ---------- | ------------------------------------------------------------------------ | ---------------- |
+| `postgres` | PostgreSQL 17. Queda `healthy` antes de que arranque la API              | ninguno          |
+| `api`      | La API. Aplica las migraciones de todos los módulos y crea el Administrador | **8080**         |
+| `worker`   | Envía los correos pendientes de la cola cada 10 segundos, sin parar      | ninguno          |
+
+**Solo la API publica un puerto.** Compruébalo en otra terminal con `docker compose ps`.
+
+- API: `http://localhost:8080`
+- Documentación interactiva (Scalar): **`http://localhost:8080/scalar/v1`**
+
+Si falta una variable obligatoria en `.env`, `docker compose up` se detiene antes de crear los contenedores y dice cuál falta (por ejemplo `Falta Admin__Email en .env`).
+
+### 2.5 Detener el proyecto
+
+- `Ctrl+C` en la terminal donde corre, o `docker compose down` desde otra. Los datos **se conservan**.
+- `docker compose down -v` **borra también los datos** (la base y los documentos subidos). Úsalo solo para empezar de cero.
+
+### 2.6 Comprobar la persistencia
+
+Los datos viven en dos volúmenes con nombre: `wheelby-pgdata` (la base) y `wheelby-documents` (los archivos subidos).
+
+1. Regístrate e inicia sesión (frentes 1 y 2 de la sección 4).
+2. Detén todo con `docker compose down` (**sin** `-v`).
+3. Vuelve a levantarlo con `docker compose up`.
+4. Inicia sesión con el mismo usuario → **200**.
 
 ---
 
-## 4. Base de datos con Docker
+## 3. Correos de activación y recuperación
 
-### 4.1 Crear el archivo `.env`
+Los correos no se envían dentro de la petición: quedan en una cola de la base con estado `Pending` y el servicio `worker` los envía en su siguiente vuelta (cada `Worker__IntervalSeconds`, 10 segundos por defecto). Ya no hace falta ejecutar nada a mano.
 
-El archivo `.env` lo lee **solo Docker Compose** para crear la base de datos. Se crea copiando la plantilla:
+- **Vía principal:** con las credenciales SMTP reales en `.env` (sección 2.3), el correo llega en unos segundos. Revisa la carpeta de spam.
+- **Respaldo sin SMTP:** con los valores de ejemplo el envío falla, el correo sigue `Pending` y el Worker lo reintenta. El enlace de activación y el código de recuperación se leen directamente de la cola:
 
-```powershell
-Copy-Item .env.example .env        # macOS / Linux: cp .env.example .env
-```
+  En bash (Git Bash, macOS o Linux):
 
-Abre `.env` y cambia **solo** estas variables:
-
-| Variable            | Qué poner                                                                                     |
-| ------------------- | --------------------------------------------------------------------------------------------- |
-| `POSTGRES_PASSWORD` | Una contraseña cualquiera para la base de datos (por ejemplo `wheelby123`)                    |
-| `POSTGRES_PORT`     | `5432`. Si ese puerto ya está ocupado en tu máquina (por un PostgreSQL instalado), usa `5433` |
-
-Deja `POSTGRES_USER=wheelby` y `POSTGRES_DB=wheelby`. Las demás líneas del `.env` son de referencia y **no** las lee la aplicación (ver sección 5).
-
-### 4.2 Levantar PostgreSQL
-
-```powershell
-docker compose up -d
-docker compose ps
-```
-
-Espera unos segundos hasta que la columna de estado diga **`healthy`**.
-
-- La primera vez descarga la imagen `postgres:17` (puede tardar unos minutos).
-- Los datos se guardan en un volumen de Docker: sobreviven a reiniciar la aplicación y al contenedor.
-- `docker compose down` detiene el contenedor y **conserva** los datos.
-- `docker compose down -v` borra también los datos (base vacía).
-
----
-
-## 5. Secretos de la aplicación
-
-**La API y el Worker no leen el archivo `.env`.** En desarrollo leen su configuración de `dotnet user-secrets`, que guarda los valores en tu perfil de usuario, fuera del repositorio. Cada proyecto tiene su propio almacén, así que se configuran por separado.
-
-Ejecuta todo lo siguiente desde `src/backend`. Sustituye cada `<...>` por tu valor.
-
-### 5.1 Cadena de conexión
-
-Usa el **mismo puerto y contraseña** que pusiste en el `.env`:
-
-```
-Host=localhost;Port=<POSTGRES_PORT>;Database=wheelby;Username=wheelby;Password=<POSTGRES_PASSWORD>
-```
-
-Ejemplo con puerto 5432 y contraseña `wheelby123`:
-`Host=localhost;Port=5432;Database=wheelby;Username=wheelby;Password=wheelby123`
-
-### 5.2 Secretos de la API
-
-```powershell
-$api = "src/Host/Host.WebAPI"
-
-dotnet user-secrets set "ConnectionStrings:Postgres" "<cadena de conexión de 5.1>" --project $api
-
-# Enlace del correo de activación (5299 es el puerto de la API; ver sección 6)
-dotnet user-secrets set "App:ActivationUrl" "http://localhost:5299/auth/activate" --project $api
-
-# Firma de la credencial de sesión: clave aleatoria de al menos 32 caracteres
-$key = [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
-dotnet user-secrets set "Jwt:Key" $key --project $api
-dotnet user-secrets set "Jwt:Issuer" "wheelby" --project $api
-dotnet user-secrets set "Jwt:Audience" "wheelby-api" --project $api
-dotnet user-secrets set "Jwt:ExpirationMinutes" "60" --project $api
-
-# Administrador fijo (rol `Administrator`): se crea al arrancar la API.
-# La contraseña debe tener al menos 8 caracteres, con letras y números.
-dotnet user-secrets set "Admin:Email" "<correo del administrador>" --project $api
-dotnet user-secrets set "Admin:Password" "<contraseña del administrador>" --project $api
-```
-
-En macOS / Linux, cambia la primera línea por `api="src/Host/Host.WebAPI"`, usa `$api` igual, y genera la clave con `key=$(openssl rand -base64 48)` antes de `dotnet user-secrets set "Jwt:Key" "$key" --project $api`.
-
-### 5.3 Secretos del Worker (envío de correos)
-
-```powershell
-$worker = "src/Host/Host.Worker"
-
-dotnet user-secrets set "ConnectionStrings:Postgres" "<cadena de conexión de 5.1>" --project $worker
-dotnet user-secrets set "Smtp:Host" "<servidor SMTP>" --project $worker
-dotnet user-secrets set "Smtp:Port" "587" --project $worker
-dotnet user-secrets set "Smtp:User" "<usuario SMTP>" --project $worker
-dotnet user-secrets set "Smtp:Password" "<contraseña SMTP>" --project $worker
-dotnet user-secrets set "Smtp:From" "<correo remitente>" --project $worker
-```
-
-**Credenciales SMTP:** no están en el repositorio. Se entregan por separado en el comentario de la entrega en Moodle. También sirve una cuenta propia:
-
-- **Gmail:** `Smtp:Host` = `smtp.gmail.com`, `Smtp:Port` = `587`, `Smtp:User` y `Smtp:From` = la dirección de Gmail, y `Smtp:Password` = una **contraseña de aplicación** de 16 caracteres sin espacios (requiere la verificación en dos pasos activada; se crea en `myaccount.google.com/apppasswords`). La contraseña normal de la cuenta no funciona.
-
-### 5.4 Comprobar los secretos
-
-```powershell
-dotnet user-secrets list --project src/Host/Host.WebAPI
-dotnet user-secrets list --project src/Host/Host.Worker
-```
-
-La API debe mostrar 8 claves (`ConnectionStrings:Postgres`, `App:ActivationUrl`, `Jwt:Key`, `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpirationMinutes`, `Admin:Email`, `Admin:Password`) y el Worker 6 (`ConnectionStrings:Postgres` y las cinco `Smtp:*`).
-
-> **Alternativa sin user-secrets:** cualquier clave se puede definir como variable de entorno de la terminal, cambiando `:` por `__`. Por ejemplo: `$env:ConnectionStrings__Postgres = "Host=localhost;..."`. Solo dura mientras la terminal esté abierta.
-
----
-
-## 6. Ejecutar la API
-
-Desde `src/backend`:
-
-```powershell
-dotnet run --project src/Host/Host.WebAPI
-```
-
-Al arrancar, la API:
-
-1. crea o actualiza las tablas de los cuatro módulos (esquemas `access_control`, `notifications`, `permissions` y `wheelby`);
-2. crea el Administrador (rol `Administrator`) con `Admin:Email` y `Admin:Password` si no existe (y lo restaura si perdió el rol o fue desactivado, sin tocar su contraseña).
-
-La consola muestra la dirección, normalmente:
-
-```
-Now listening on: http://localhost:5299
-```
-
-- **Documentación interactiva (Scalar):** `http://localhost:5299/scalar/v1`
-- Si el puerto mostrado **no** es `5299`, actualiza el enlace de activación con ese puerto y reinicia la API:
-
-  ```powershell
-  dotnet user-secrets set "App:ActivationUrl" "http://localhost:<puerto>/auth/activate" --project src/Host/Host.WebAPI
+  ```bash
+  docker compose exec postgres psql -U wheelby -d wheelby -c "SELECT \"To\", \"Status\", \"Body\" FROM notifications.\"QueuedEmails\" ORDER BY \"CreatedAt\" DESC LIMIT 5;"
   ```
 
-Si falta alguna variable obligatoria (`ConnectionStrings:Postgres`, `App:ActivationUrl`, `Jwt:Key`, `Jwt:Issuer`, `Jwt:Audience`, `Admin:Email` o `Admin:Password`; ver la sección 10), o `Jwt:Key` tiene menos de 32 caracteres, o `Admin:Password` no cumple la política, **la API no arranca** y la consola indica qué falta.
+  En PowerShell, abre la consola de PostgreSQL y escribe la consulta:
 
-Deja esta terminal abierta mientras pruebas.
+  ```powershell
+  docker compose exec postgres psql -U wheelby -d wheelby
+  ```
 
----
+  ```sql
+  SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "CreatedAt" DESC LIMIT 5;
+  ```
 
-## 7. Ejecutar el envío de correos (Worker)
+  Sal con `\q`. Si cambiaste `POSTGRES_USER` o `POSTGRES_DB` en `.env`, usa esos valores en `-U` y `-d`.
 
-Los correos (activación, recuperación de contraseña) **no se envían dentro de la operación**: quedan en una cola en la base de datos con estado `Pending`. Un proceso aparte los envía.
-
-En **otra terminal**, también desde `src/backend`:
-
-```powershell
-dotnet run --project src/Host/Host.Worker
-```
-
-El Worker procesa los pendientes **en una sola pasada y termina**. Su última línea indica el resultado, por ejemplo `Pending emails processed. Sent: 1. Failed: 0.`
-
-- Se ejecuta cada vez que se quiera enviar lo que haya en la cola (después de registrarse, de pedir una recuperación, etc.).
-- Ejecutarlo dos veces seguidas no reenvía nada.
-- Si el SMTP no responde, los correos siguen `Pending` y se envían en la siguiente ejecución.
-- Si el correo no aparece en la bandeja de entrada, revisa la carpeta de spam.
+- Para ver lo que hace el Worker: `docker compose logs -f worker`. Cada vez que envía algo escribe `Pending emails processed. Sent: N. Failed: M.`
 
 ---
 
-## 8. Los cinco frentes: Control de acceso y Gestión de permisos
+## 4. Los cinco frentes: Control de acceso y Gestión de permisos
 
-Los frentes 1 a 4 son de Control de acceso y el frente 5 es de Gestión de permisos. El negocio Wheelby (publicar vehículos solo tras la aprobación del permiso `wheelby.publish-vehicle`, buscar, reservar y el ciclo de la reserva) se prueba con los pasos de [docs/wheelby/README.md](docs/wheelby/README.md).
+Los frentes 1 a 4 son de Control de acceso y el frente 5 es de Gestión de permisos. El negocio Wheelby se prueba con los pasos de [docs/wheelby/README.md](docs/wheelby/README.md).
 
-Con la API corriendo (sección 6), en Scalar (`http://localhost:5299/scalar/v1`). Para usar un token en Scalar: copia el `accessToken` de la respuesta de `POST /auth/login` y pégalo en el botón de autorización (esquema Bearer).
+Con el proyecto corriendo (sección 2), en Scalar (`http://localhost:8080/scalar/v1`). Para usar un token en Scalar: copia el `accessToken` de la respuesta de `POST /auth/login` y pégalo en el botón de autorización (esquema Bearer).
 
 ### Roles
 
@@ -246,11 +148,11 @@ Cada usuario tiene **exactamente un rol**. En las peticiones, en las respuestas 
 | Rol | Valor exacto | Quién lo tiene |
 |---|---|---|
 | Estándar | `Standard` | Todo usuario que se registra con `POST /auth/register` |
-| Administrador | `Administrator` | El Administrador fijo (`Admin:Email` / `Admin:Password`), que la API crea al arrancar, y quien reciba ese rol con `PATCH /admin/users/{id}/role` |
+| Administrador | `Administrator` | El Administrador fijo (`Admin__Email` / `Admin__Password` del `.env`), que la API crea al arrancar, y quien reciba ese rol con `PATCH /admin/users/{id}/role` |
 
 ### Rutas y formato de los cuerpos
 
-Todos los cuerpos son JSON (`Content-Type: application/json`) y los nombres de los campos van en camelCase. Los errores se devuelven como `application/problem+json`. Una ruta con sesión exige la cabecera `Authorization: Bearer <accessToken>`.
+Todos los cuerpos son JSON (`Content-Type: application/json`) y los nombres de los campos van en camelCase. Los errores se devuelven como `application/problem+json`: **400** datos inválidos, **401** sin sesión, **403** sin permiso, **404** no existe, **409** estado que no admite la operación. Una ruta con sesión exige la cabecera `Authorization: Bearer <accessToken>`.
 
 | Ruta | Sesión | Cuerpo de la petición | Respuesta correcta |
 |---|---|---|---|
@@ -273,11 +175,7 @@ Todos los cuerpos son JSON (`Content-Type: application/json`) y los nombres de l
 
 Contraseñas: al menos 8 caracteres, con letras y números. En las rutas `/admin/...`: sin sesión, **401**; con sesión pero sin el rol `Administrator`, **403**.
 
-Si no quieres esperar el correo, el enlace de activación y el código de recuperación también se leen de la cola:
-
-```sql
-SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "CreatedAt" DESC;
-```
+Si no quieres esperar el correo, el enlace de activación y el código de recuperación también se leen de la cola (sección 3).
 
 ### Frente 1: registro con activación por correo
 
@@ -293,7 +191,7 @@ SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "Create
 
    → **201**.
 2. `POST /auth/login` con ese correo y esa contraseña, **antes** de activar → **403** "La cuenta no está activa…".
-3. En otra terminal, desde `src/backend`: `dotnet run --project src/Host/Host.Worker` → `Sent: 1`. Llega el correo «Activa tu cuenta de Wheelby» (revisa spam).
+3. En unos segundos el Worker envía el correo «Activa tu cuenta de Wheelby» (revisa spam). Sin SMTP real, lee el enlace de la cola (sección 3).
 4. Abrir el enlace del correo → **200** "Cuenta activada. Ya puedes iniciar sesión."
 5. Abrir el mismo enlace otra vez → **400** (el enlace es de un solo uso).
 
@@ -318,13 +216,13 @@ SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "Create
    La misma petición construida a mano, fuera de Scalar:
 
    ```powershell
-   Invoke-RestMethod -Method Get -Uri "http://localhost:5299/admin/users" `
+   Invoke-RestMethod -Method Get -Uri "http://localhost:8080/admin/users" `
      -Headers @{ Authorization = "Bearer <token del usuario Estándar>" }
    ```
 
    `Invoke-RestMethod` lanza una excepción con el 403: es el resultado esperado.
 3. Sin token → **401**.
-4. Comparación: `POST /auth/login` con `Admin:Email` y `Admin:Password` (rol `Administrator`), pega ese token y repite `GET /admin/users` → **200**.
+4. Comparación: `POST /auth/login` con `Admin__Email` y `Admin__Password` del `.env` (rol `Administrator`), pega ese token y repite `GET /admin/users` → **200**.
 
 ### Frente 4: recuperación de contraseña
 
@@ -335,7 +233,7 @@ SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "Create
    ```
 
    → **200**.
-2. Ejecuta el Worker (`dotnet run --project src/Host/Host.Worker`). Llega el correo «Recupera tu contraseña de Wheelby» con un código.
+2. En unos segundos el Worker envía el correo «Recupera tu contraseña de Wheelby» con un código. Sin SMTP real, lee el código de la cola (sección 3).
 3. `POST /auth/reset-password`:
 
    ```json
@@ -348,7 +246,7 @@ SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "Create
 
 ### Frente 5: Gestión de permisos
 
-Se necesitan dos tokens: el **token de Estándar** (`POST /auth/login` con el usuario de los frentes 1 a 4) y el **token de Administrador** (`POST /auth/login` con `Admin:Email` y `Admin:Password`). En cada paso se indica cuál pegar en Scalar. Detalle de cada criterio y consultas SQL en [docs/gestion-permisos/README.md](docs/gestion-permisos/README.md).
+Se necesitan dos tokens: el **token de Estándar** (`POST /auth/login` con el usuario de los frentes 1 a 4) y el **token de Administrador** (`POST /auth/login` con `Admin__Email` y `Admin__Password` del `.env`). En cada paso se indica cuál pegar en Scalar. Detalle de cada criterio y consultas SQL en [docs/gestion-permisos/README.md](docs/gestion-permisos/README.md).
 
 | Ruta | Sesión | Cuerpo de la petición | Respuesta correcta |
 |---|---|---|---|
@@ -415,46 +313,34 @@ ORDER BY "CreatedAt" DESC;
 
 ---
 
-## 9. Cómo verificar los criterios
+## 5. Cómo verificar los criterios
 
 - **Control de acceso y correo por cola** (RF-CA-01 a 22, RF-NOT-08, 09, 12, 13): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/control-acceso/README.md](docs/control-acceso/README.md).
 - **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquina-de-estados.md](docs/maquina-de-estados.md).
 - **Gestión de permisos** (RF-GP-01 a 07, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/gestion-permisos/README.md](docs/gestion-permisos/README.md).
 - **Módulo de negocio Wheelby** (RF-NEG-01 a 06, RD-03, RD-07, RD-08, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/wheelby/README.md](docs/wheelby/README.md).
 
-Atajos útiles para las pruebas:
+Atajos útiles:
 
-- **Leer el enlace de activación o el código de recuperación sin esperar el correo:**
-
-  ```sql
-  SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "CreatedAt" DESC;
-  ```
-
-- **Simular SMTP caído (RF-NOT-08):** cambiar el puerto del Worker a uno inválido, registrar un usuario (la API responde 201 y el correo queda `Pending`), ejecutar el Worker (`Failed: 1`) y restaurar el puerto:
-
-  ```powershell
-  dotnet user-secrets set "Smtp:Port" "9999" --project src/Host/Host.Worker
-  # ... probar ...
-  dotnet user-secrets set "Smtp:Port" "587" --project src/Host/Host.Worker
-  ```
-
+- **Simular SMTP caído (RF-NOT-08):** pon `Smtp__Port=9999` en `.env` y recrea el Worker con `docker compose up -d worker`. Registra un usuario: la API responde 201 y el correo queda `Pending`; `docker compose logs worker` muestra `Failed: 1` en cada vuelta. Restaura el puerto y repite `docker compose up -d worker`: el correo sale (`Sent: 1`) y no se duplica.
 - **Peticiones construidas a mano (RF-CA-06),** fuera de Scalar:
 
   ```powershell
-  Invoke-RestMethod -Method Get -Uri "http://localhost:5299/admin/users" `
+  Invoke-RestMethod -Method Get -Uri "http://localhost:8080/admin/users" `
     -Headers @{ Authorization = "Bearer <token de un usuario Estándar>" }
   ```
 
   Un 403 hace que `Invoke-RestMethod` lance una excepción con el código de estado: es el resultado esperado.
 
-- **Persistencia (RD-09):** detener la API (Ctrl+C) y volver a ejecutarla; o `docker compose down` y `docker compose up -d`. Los usuarios siguen ahí.
+- **Persistencia (RD-09):** sección 2.6.
 - **Credenciales fuera del repositorio (RD-10, RF-NOT-13):** desde la raíz del repositorio,
 
   ```bash
   git grep -n -i "password" -- ':!*.md'
+  git log --all --oneline -- .env '**/.env'
   ```
 
-  Solo aparecen nombres de variables y valores de ejemplo (`change_me`).
+  El primero solo muestra nombres de variables y valores de ejemplo (`change_me`, `wheelby_local_123`). El segundo no devuelve nada: `.env` nunca se subió.
 
 ---
 
@@ -567,49 +453,38 @@ dotnet test                         # debe reportar las pruebas fallidas de la t
 
 ---
 
-## 10. Variables de configuración
+---
 
-Ningún valor real está en el repositorio. `.env.example` solo contiene valores de ejemplo.
+## 6. Variables de configuración
 
-**Obligatorias:** si falta una variable obligatoria, la aplicación que la usa **no arranca** y la consola dice cuál falta (sin mostrar su valor).
+Todas se definen en **`.env`** (copia de `.env.example`). Ningún valor real está en el repositorio: `.env.example` solo trae valores de ejemplo, con los que la aplicación arranca. Las que van con `__` son la forma de entorno de las claves de .NET (`Jwt__Key` = `Jwt:Key`).
 
-| Variable (como user-secret)  | Como variable de entorno | ¿Obligatoria? | Para qué sirve | Quién la lee |
-| ---------------------------- | ------------------------ | ------------- | -------------- | ------------ |
-| —                            | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Sí | Crear la base de datos del contenedor y publicar su puerto | Docker Compose (`.env`) |
-| `ConnectionStrings:Postgres` | `ConnectionStrings__Postgres` | **Sí** | Conexión a la base de datos | API y Worker |
-| `App:ActivationUrl`          | `App__ActivationUrl`          | **Sí** | Dirección a la que apunta el enlace del correo de activación (`http://localhost:5299/auth/activate`) | API |
-| `Jwt:Key`                    | `Jwt__Key`                    | **Sí** | Clave secreta que firma la credencial de sesión (mínimo 32 caracteres) | API |
-| `Jwt:Issuer`                 | `Jwt__Issuer`                 | **Sí** | Emisor de la credencial (por ejemplo `wheelby`) | API |
-| `Jwt:Audience`               | `Jwt__Audience`               | **Sí** | Destinatario de la credencial (por ejemplo `wheelby-api`) | API |
-| `Jwt:ExpirationMinutes`      | `Jwt__ExpirationMinutes`      | No (60 por defecto) | Vigencia de la sesión, en minutos | API |
-| `Admin:Email`                | `Admin__Email`                | **Sí** | Correo del Administrador fijo (rol `Administrator`) | API |
-| `Admin:Password`             | `Admin__Password`             | **Sí** | Contraseña inicial del Administrador fijo (8+ caracteres, con letras y números) | API |
-| `Smtp:Host`                  | `Smtp__Host`                  | **Sí**, para el Worker | Servidor de correo saliente | Worker |
-| `Smtp:Port`                  | `Smtp__Port`                  | **Sí**, para el Worker | Puerto del servidor de correo (587, STARTTLS) | Worker |
-| `Smtp:User`                  | `Smtp__User`                  | **Sí**, para el Worker | Usuario del servidor de correo | Worker |
-| `Smtp:Password`              | `Smtp__Password`              | **Sí**, para el Worker | Contraseña del servidor de correo | Worker |
-| `Smtp:From`                  | `Smtp__From`                  | **Sí**, para el Worker | Remitente de los correos | Worker |
+| Variable | ¿Obligatoria? | Para qué sirve | Quién la lee |
+|---|---|---|---|
+| `API_PORT` | No (8080) | Puerto de la API en tu máquina. Si lo cambias, cambia también el puerto de `App__ActivationUrl` | Docker Compose |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | **Sí** | Crear la base del contenedor. Compose arma con ellas `ConnectionStrings__Postgres` para la API y el Worker | Docker Compose |
+| `App__ActivationUrl` | **Sí** | Dirección del enlace del correo de activación (`http://localhost:8080/auth/activate`) | API |
+| `Jwt__Key` | **Sí** | Clave secreta que firma la credencial de sesión (mínimo 32 caracteres) | API |
+| `Jwt__Issuer`, `Jwt__Audience` | **Sí** | Emisor y destinatario de la credencial | API |
+| `Jwt__ExpirationMinutes` | No (60) | Vigencia de la sesión, en minutos | API |
+| `Admin__Email`, `Admin__Password` | **Sí** | Administrador fijo (rol `Administrator`), que la API crea al arrancar. Contraseña de 8+ caracteres, con letras y números | API |
+| `Smtp__Host`, `Smtp__Port`, `Smtp__User`, `Smtp__Password`, `Smtp__From` | Para que lleguen los correos | Servidor de correo saliente (587, STARTTLS). Las credenciales reales van en el comentario de Moodle | Worker |
+| `Worker__IntervalSeconds` | No (10, mínimo 1) | Segundos entre vueltas del Worker | Worker |
+| `OpenApi__Enabled` | No (el compose la pone en `true`) | Publica Scalar y OpenAPI fuera de `Development` | API |
+| `Cors__AllowedOrigins__0` | No (`http://localhost:5173`) | Origen permitido para el frontend | API |
+
+Si falta una obligatoria, `docker compose up` se detiene y dice cuál. Si la clave JWT es corta o la contraseña del Administrador no cumple la política, la API no arranca y el log (`docker compose logs api`) dice el motivo, sin mostrar el valor.
 
 Valores fijados en el código (no son variables): vigencia del enlace de activación, 24 horas; vigencia del código de recuperación, 30 minutos; bloqueo tras 5 intentos fallidos, durante 15 minutos.
 
 ---
 
-## 11. Ver los datos en PostgreSQL
+## 7. Ver los datos en PostgreSQL
 
-Con cualquier cliente de PostgreSQL (DBeaver, pgAdmin):
+La base no publica su puerto: se consulta desde el propio contenedor, sin instalar nada.
 
-| Campo         | Valor                     |
-| ------------- | ------------------------- |
-| Host          | `localhost`               |
-| Puerto        | el de `POSTGRES_PORT`     |
-| Base de datos | `wheelby`                 |
-| Usuario       | `wheelby`                 |
-| Contraseña    | la de `POSTGRES_PASSWORD` |
-
-O desde la terminal, sin instalar nada:
-
-```powershell
-docker exec -it wheelby-postgres psql -U wheelby -d wheelby
+```bash
+docker compose exec postgres psql -U wheelby -d wheelby
 ```
 
 Cada módulo tiene su propio esquema. Los nombres de tabla llevan **comillas dobles** porque tienen mayúsculas:
@@ -620,33 +495,40 @@ SELECT * FROM access_control."Sessions";
 SELECT * FROM notifications."QueuedEmails";
 SELECT * FROM permissions."PermissionRequests";
 SELECT * FROM permissions."PermissionGrants";
+SELECT * FROM wheelby."Vehicles";
 SELECT * FROM wheelby."Reservations";
 ```
 
----
-
-## 12. Problemas frecuentes
-
-| Síntoma                                                                  | Causa                                                                                              | Solución                                                                                                                                                                                 |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `no configuration file provided: not found`                              | Comando ejecutado fuera de `src/backend`                                                           | Volver a la sección 3                                                                                                                                                                    |
-| `docker version` muestra error del servidor                              | Docker Desktop no está abierto                                                                     | Abrirlo y esperar a que diga "running"                                                                                                                                                   |
-| `Bind for 0.0.0.0:5432 failed: port is already allocated`                | Otro programa usa el puerto 5432                                                                   | Poner `POSTGRES_PORT=5433` en `.env`, `docker compose up -d`, y usar `Port=5433` en la cadena de conexión de **ambos** proyectos                                                         |
-| La API no arranca y menciona `ConnectionStrings`, `Jwt`, `Admin` o `App` | Falta un secreto, o la clave JWT es corta, o la contraseña del Administrador no cumple la política | Repetir la sección 5.2 y comprobar con 5.4                                                                                                                                               |
-| `password authentication failed for user "wheelby"`                      | La contraseña de la cadena de conexión no coincide con la base                                     | Usar la misma que en `.env`. Si cambiaste `POSTGRES_PASSWORD` después del primer `up`, la base conserva la anterior: `docker compose down -v` y `docker compose up -d` (borra los datos) |
-| `Could not find the global property 'UserSecretsId'`                     | El proyecto no tiene almacén de secretos inicializado                                              | `dotnet user-secrets init --project <proyecto>` y repetir los `set`                                                                                                                      |
-| El Worker dice `Failed: 1`                                               | Credenciales o puerto SMTP incorrectos, o SMTP no accesible                                        | Revisar la sección 5.3. Con Gmail, usar la contraseña de aplicación, no la normal                                                                                                        |
-| El correo no llega                                                       | Todavía no se ejecutó el Worker, o está en spam                                                    | Ejecutar el Worker (sección 7) y revisar spam                                                                                                                                            |
-| El enlace de activación no abre                                          | `App:ActivationUrl` no tiene el puerto real de la API                                              | Sección 6                                                                                                                                                                                |
-| `GET /auth/me` u otras rutas responden 401 en Scalar                     | Falta pegar el token, o ya venció (60 min), o se cerró la sesión                                   | Volver a iniciar sesión y pegar el nuevo `accessToken`                                                                                                                                   |
-| Empezar de cero                                                          | —                                                                                                  | `docker compose down -v`, `docker compose up -d` y arrancar la API                                                                                                                       |
+Sal con `\q`.
 
 ---
 
-## 13. Estructura del repositorio
+## 8. Problemas frecuentes
+
+| Síntoma | Causa | Solución |
+|---|---|---|
+| `no configuration file provided: not found` | Comando ejecutado fuera de la raíz del repositorio | Ir a la carpeta donde están `docker-compose.yml` y `.env.example` |
+| `docker version` muestra error del servidor | Docker Desktop no está abierto | Abrirlo y esperar a que diga "running" |
+| `env file .../.env not found` | No se creó `.env` | Sección 2.2 |
+| `required variable ... is missing a value: Falta ... en .env` | Esa línea no está en `.env` o está vacía | Agregarla con el valor de `.env.example`, o volver a copiar la plantilla |
+| `Bind for 0.0.0.0:8080 failed: port is already allocated` | Otro programa usa el puerto 8080 | Poner `API_PORT=8081` y `App__ActivationUrl=http://localhost:8081/auth/activate` en `.env`, y usar `http://localhost:8081` en todo el documento |
+| `docker compose logs api` dice `Jwt:Key debe tener al menos 32 caracteres` o que la contraseña del Administrador no es válida | Valores de `.env` que no cumplen las reglas | Corregirlos y repetir `docker compose up` |
+| `password authentication failed for user "wheelby"` | Cambiaste `POSTGRES_PASSWORD` después del primer arranque: la base conserva la anterior | `docker compose down -v` y `docker compose up --build` (borra los datos) |
+| Los correos quedan `Pending` y el Worker dice `Failed: 1` | SMTP de ejemplo, o credenciales o puerto incorrectos | Sección 2.3; con Gmail, usar la contraseña de aplicación. Mientras tanto, leer el enlace de la cola (sección 3) |
+| El enlace de activación no abre | `App__ActivationUrl` no tiene el puerto real de la API | Que coincida con `API_PORT` |
+| `GET /auth/me` u otras rutas responden 401 en Scalar | Falta pegar el token, o ya venció (60 min), o se cerró la sesión | Volver a iniciar sesión y pegar el nuevo `accessToken` |
+| Empezar de cero | — | `docker compose down -v` y `docker compose up --build` |
+
+---
+
+## 9. Estructura del repositorio
 
 ```
 <raíz del repositorio>/
+├─ Dockerfile                        Imagen de la API y del Worker (y etapa de pruebas)
+├─ .dockerignore
+├─ docker-compose.yml                postgres, api y worker con un solo comando
+├─ .env.example                      Plantilla del .env (solo valores de ejemplo)
 ├─ docs/
 │  ├─ maquina-de-estados.md          Máquinas de estados de la Reserva y de los Permisos
 │  ├─ wheelby/README.md              Cómo probar el módulo de negocio Wheelby
@@ -654,14 +536,12 @@ SELECT * FROM wheelby."Reservations";
 │  ├─ gestion-permisos/README.md     Cómo verificar cada criterio de Gestión de permisos
 │  └─ bitacora-asignacion-2.md       Bitácora de la sesión con el agente
 └─ src/
-   └─ backend/                       ← carpeta de trabajo (sección 3)
+   └─ backend/
       ├─ Wheelby.slnx
-      ├─ docker-compose.yml          PostgreSQL
-      ├─ .env.example                Plantilla del .env (solo valores de ejemplo)
       └─ src/
          ├─ Host/
          │  ├─ Host.WebAPI/          API (Minimal APIs, Scalar)
-         │  └─ Host.Worker/          Envío de los correos pendientes
+         │  └─ Host.Worker/          Envío continuo de los correos pendientes
          ├─ Shared/                  SharedKernel y Shared.Application
          ├─ Core/
          │  ├─ AccessControl/        Control de acceso
