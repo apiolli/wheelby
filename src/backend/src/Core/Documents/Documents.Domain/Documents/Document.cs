@@ -17,6 +17,10 @@ public sealed class Document : AggregateRoot<Guid>
     public long SizeBytes { get; private set; }
     public string StoredFileName { get; private set; } = string.Empty;
     public DateTime UploadedAt { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
+    public Guid? DeletedBy { get; private set; }
+
+    public bool IsDeleted => DeletedAt is not null;
 
     private Document() : base(Guid.Empty) { }
 
@@ -68,6 +72,22 @@ public sealed class Document : AggregateRoot<Guid>
             throw new InvalidDocumentDataException("La fecha debe estar en UTC.");
 
         return new Document(Guid.NewGuid(), ownerId, safeName, type, sizeBytes, utcNow);
+    }
+
+    // RF-DOC-04: eliminación lógica. La fila y el archivo se conservan.
+    public void MarkDeleted(Guid deletedBy, DateTime utcNow)
+    {
+        if (IsDeleted)
+            throw new DocumentNotFoundException();
+
+        if (deletedBy == Guid.Empty)
+            throw new InvalidDocumentDataException("Quién elimina el documento es obligatorio.");
+
+        if (utcNow.Kind != DateTimeKind.Utc)
+            throw new InvalidDocumentDataException("La fecha debe estar en UTC.");
+
+        DeletedAt = utcNow;
+        DeletedBy = deletedBy;
     }
 
     // RF-DOC-03 y 04: única regla de acceso. Los handlers la usan y no la repiten.
