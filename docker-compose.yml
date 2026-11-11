@@ -1,14 +1,20 @@
+# Wheelby completo con un solo comando, desde la raíz del repositorio:
+#   docker compose up --build
+# Solo la API publica un puerto. Los secretos llegan desde .env (copia de .env.example).
+
+x-postgres-connection: &postgres-connection
+  # Se arma aquí para no repetir la contraseña en .env.
+  ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:?Falta POSTGRES_DB en .env};Username=${POSTGRES_USER:?Falta POSTGRES_USER en .env};Password=${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+
 services:
   postgres:
     image: postgres:17
-    container_name: wheelby-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
       POSTGRES_DB: ${POSTGRES_DB:?Falta POSTGRES_DB en .env}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # Sin ports: la base no se publica fuera de la composición.
     volumes:
       - wheelby-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -16,6 +22,35 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  api:
+    build:
+      context: .
+      target: api
+    env_file: .env
+    restart: unless-stopped
+    environment:
+      <<: *postgres-connection
+      OpenApi__Enabled: "true"
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      target: worker
+    env_file: .env
+    restart: unless-stopped
+    environment:
+      <<: *postgres-connection
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
 
 volumes:
   wheelby-pgdata:
