@@ -6,9 +6,8 @@ Publicación de vehículos, búsqueda de disponibilidad, solicitud, confirmació
 
 ## Requisitos previos
 
-- .NET SDK 10 y Docker Desktop.
-- Todos los comandos se ejecutan desde la carpeta `src/backend` (la que contiene `Wheelby.slnx`).
-- La base de datos y los secretos se preparan siguiendo el README principal (PostgreSQL con Docker Compose y `dotnet user-secrets`).
+- Docker Desktop. El proyecto se levanta con `docker compose up --build` desde la raíz del repositorio, siguiendo la sección «Contenedor» del README principal; la API queda en `http://localhost:8080` (Scalar en `/scalar/v1`).
+- Toda la configuración va en el archivo `.env` de la raíz (copia de `.env.example`). Las consultas SQL se ejecutan con `docker compose exec postgres psql -U wheelby -d wheelby` (sección «Ver los datos en PostgreSQL» del README principal).
 - Al arrancar, la API aplica también las migraciones del módulo Wheelby (esquema `wheelby`, migración `AddVehicles`).
 
 ## Personas de la prueba
@@ -42,7 +41,7 @@ Sin sesión → **401**. Con sesión pero sin el rol del grupo → **403**.
 
 ## Cómo provocar cada criterio de aceptación
 
-Las pruebas se hacen desde Scalar (`/scalar/v1`) y con consultas SQL en un cliente de PostgreSQL (por ejemplo DBeaver: host `localhost`, el puerto de `POSTGRES_PORT`, y la base, usuario y contraseña de tu `.env`). PostgreSQL distingue mayúsculas en los nombres con comillas, así que las consultas llevan comillas dobles.
+Las pruebas se hacen desde Scalar (`/scalar/v1`) y con consultas SQL en la consola de PostgreSQL del contenedor (`docker compose exec postgres psql -U wheelby -d wheelby`; la base no publica su puerto). PostgreSQL distingue mayúsculas en los nombres con comillas, así que las consultas llevan comillas dobles.
 
 Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` de la respuesta y pégalo en el botón de autorización (esquema Bearer) de Scalar.
 
