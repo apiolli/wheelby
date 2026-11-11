@@ -32,7 +32,7 @@ public class PublishVehicleHandlerTests
     }
 
     [Fact]
-    public void RF_NEG_02_F1_con_permiso_crea_vehiculo_con_owner_id_del_usuario_actual()
+    public async Task RF_NEG_02_F1_con_permiso_crea_vehiculo_con_owner_id_del_usuario_actual()
     {
         // Arrange
         var handler = CrearHandler(
@@ -40,7 +40,7 @@ public class PublishVehicleHandlerTests
         var command = new PublishVehicleCommand("Toyota", "Corolla", 2020, "ABC-123", 15000m);
 
         // Act
-        var id = handler.Handle(command, CancellationToken.None).Result;
+        var id = await handler.Handle(command, CancellationToken.None);
 
         // Assert
         Assert.NotEqual(Guid.Empty, id);
@@ -76,7 +76,7 @@ public class PublishVehicleHandlerTests
             out var vehicles, out var unitOfWork, out var currentUser, out _, conPermiso: true);
         var existing = Vehicle.Create(
             currentUser.Id, "Toyota", "Corolla", 2020, "ABC-123", 15000m, Ahora);
-        vehicles.AddAsync(existing).GetAwaiter().GetResult();
+        await vehicles.AddAsync(existing);
 
         var command = new PublishVehicleCommand("Honda", "Civic", 2021, "ABC-123", 20000m);
 

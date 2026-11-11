@@ -69,11 +69,11 @@ public class RentalCycleHandlerTests
         var clock = new FixedClock(Ahora);
 
         var vehiculo = Vehicle.Create(dueno.Id, "Toyota", "Corolla", 2020, "ABC-123", 15000m, Ahora);
-        vehicles.AddAsync(vehiculo).GetAwaiter().GetResult();
+        await vehicles.AddAsync(vehiculo);
 
         var reserva = Reservation.Create(vehiculo.Id, inquilino.Id, Inicio, Fin, Ahora);
         // Ya nace en Pending, no hace falta confirmar
-        reservations.AddAsync(reserva).GetAwaiter().GetResult();
+        await reservations.AddAsync(reserva);
 
         var cancelHandler = new CancelReservationCommandHandler(vehicles, reservations, unitOfWork, inquilino, new FixedClock(Ahora));
 

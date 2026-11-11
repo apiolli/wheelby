@@ -21,7 +21,7 @@ public class SearchAvailableVehiclesHandlerTests
     }
 
     [Fact]
-    public void RF_NEG_02_F2_excluye_vehiculos_del_propio_usuario()
+    public async Task RF_NEG_02_F2_excluye_vehiculos_del_propio_usuario()
     {
         // Arrange
         var handler = CrearHandler(out var readStore, out var currentUser);
@@ -31,9 +31,9 @@ public class SearchAvailableVehiclesHandlerTests
         readStore.AgregarVehiculo(Guid.NewGuid(), otroUsuario, "XYZ-789"); // ajeno
 
         // Act
-        var resultado = handler.Handle(
+        var resultado = await handler.Handle(
             new SearchAvailableVehiclesQuery(Desde, Hasta, 1, 20),
-            CancellationToken.None).Result;
+            CancellationToken.None);
 
         // Assert
         Assert.Single(resultado.Items);
@@ -41,7 +41,7 @@ public class SearchAvailableVehiclesHandlerTests
     }
 
     [Fact]
-    public void RF_NEG_02_F2_excluye_vehiculos_con_reserva_Confirmed_que_solapa()
+    public async Task RF_NEG_02_F2_excluye_vehiculos_con_reserva_Confirmed_que_solapa()
     {
         // Arrange
         var handler = CrearHandler(out var readStore, out var currentUser);
@@ -54,16 +54,16 @@ public class SearchAvailableVehiclesHandlerTests
             new DateTime(2026, 11, 8, 0, 0, 0, DateTimeKind.Utc));
 
         // Act
-        var resultado = handler.Handle(
+        var resultado = await handler.Handle(
             new SearchAvailableVehiclesQuery(Desde, Hasta, 1, 20),
-            CancellationToken.None).Result;
+            CancellationToken.None);
 
         // Assert
         Assert.Empty(resultado.Items);
     }
 
     [Fact]
-    public void RF_NEG_02_F2_excluye_vehiculos_con_reserva_InProgress_que_solapa()
+    public async Task RF_NEG_02_F2_excluye_vehiculos_con_reserva_InProgress_que_solapa()
     {
         // Arrange
         var handler = CrearHandler(out var readStore, out var currentUser);
@@ -75,16 +75,16 @@ public class SearchAvailableVehiclesHandlerTests
             new DateTime(2026, 11, 8, 0, 0, 0, DateTimeKind.Utc));
 
         // Act
-        var resultado = handler.Handle(
+        var resultado = await handler.Handle(
             new SearchAvailableVehiclesQuery(Desde, Hasta, 1, 20),
-            CancellationToken.None).Result;
+            CancellationToken.None);
 
         // Assert
         Assert.Empty(resultado.Items);
     }
 
     [Fact]
-    public void RF_NEG_02_F2_no_excluye_por_reserva_Pending()
+    public async Task RF_NEG_02_F2_no_excluye_por_reserva_Pending()
     {
         // Arrange
         var handler = CrearHandler(out var readStore, out var currentUser);
@@ -97,9 +97,9 @@ public class SearchAvailableVehiclesHandlerTests
             new DateTime(2026, 11, 8, 0, 0, 0, DateTimeKind.Utc));
 
         // Act
-        var resultado = handler.Handle(
+        var resultado = await handler.Handle(
             new SearchAvailableVehiclesQuery(Desde, Hasta, 1, 20),
-            CancellationToken.None).Result;
+            CancellationToken.None);
 
         // Assert
         Assert.Single(resultado.Items);

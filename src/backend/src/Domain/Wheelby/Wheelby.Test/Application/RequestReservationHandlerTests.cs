@@ -35,7 +35,7 @@ public class RequestReservationHandlerTests
         // Arrange
         var handler = CrearHandler(out var vehicles, out _, out _, out var currentUser);
         var vehiculo = Vehicle.Create(currentUser.Id, "Toyota", "Corolla", 2020, "ABC-123", 15000m, Ahora);
-        vehicles.AddAsync(vehiculo).GetAwaiter().GetResult();
+        await vehicles.AddAsync(vehiculo);
 
         var command = new RequestReservationCommand(vehiculo.Id, Inicio, Fin);
 
@@ -63,12 +63,12 @@ public class RequestReservationHandlerTests
         var handler = CrearHandler(out var vehicles, out var reservations, out _, out var currentUser);
         var propietario = Guid.NewGuid();
         var vehiculo = Vehicle.Create(propietario, "Toyota", "Corolla", 2020, "ABC-123", 15000m, Ahora);
-        vehicles.AddAsync(vehiculo).GetAwaiter().GetResult();
+        await vehicles.AddAsync(vehiculo);
 
         // Reserva Confirmed existente que solapa
         var existente = Reservation.Create(vehiculo.Id, Guid.NewGuid(), Inicio, Fin, Ahora);
         existente.TransitionTo(ReservationStatus.Confirmed, ReservationActor.Host, Ahora, null);
-        reservations.AddAsync(existente).GetAwaiter().GetResult();
+        await reservations.AddAsync(existente);
 
         var command = new RequestReservationCommand(vehiculo.Id, Inicio, Fin);
 
@@ -78,7 +78,7 @@ public class RequestReservationHandlerTests
     }
 
     [Fact]
-    public async void RF_NEG_02_F3_exito_nace_en_Pending()
+    public async Task RF_NEG_02_F3_exito_nace_en_Pending()
     {
         // Arrange
         var handler = CrearHandler(out var vehicles, out var reservations, out var unitOfWork, out var currentUser);

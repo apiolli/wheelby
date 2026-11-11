@@ -17,7 +17,7 @@ public class ReservationQueriesHandlerTests
         => new(id, vehicleId, renterId, start, end, status, createdAt);
 
     [Fact]
-    public void RF_NEG_02_F6_ListMyReservations_devuelve_solo_las_del_usuario()
+    public async Task RF_NEG_02_F6_ListMyReservations_devuelve_solo_las_del_usuario()
     {
         // Arrange
         var readStore = new InMemoryReservationReadStore();
@@ -36,15 +36,15 @@ public class ReservationQueriesHandlerTests
         var handler = new ListMyReservationsQueryHandler(readStore, currentUser);
 
         // Act
-        var resultado = handler.Handle(new ListMyReservationsQuery("renter", 1, 20), CancellationToken.None).Result;
+        var resultado = await handler.Handle(new ListMyReservationsQuery("renter", 1, 20), CancellationToken.None);
 
         // Assert
         Assert.All(resultado.Items, r => Assert.Equal(UsuarioA, r.RenterId));
-        Assert.Equal(1, resultado.Items.Count);
+        Assert.Single(resultado.Items);
     }
 
     [Fact]
-    public void RF_NEG_02_F6_ListAllReservations_filtra_por_estado()
+    public async Task RF_NEG_02_F6_ListAllReservations_filtra_por_estado()
     {
         // Arrange
         var readStore = new InMemoryReservationReadStore();
@@ -62,10 +62,10 @@ public class ReservationQueriesHandlerTests
         var handler = new ListAllReservationsQueryHandler(readStore);
 
         // Act
-        var resultado = handler.Handle(new ListAllReservationsQuery(ReservationStatus.Confirmed, 1, 20), CancellationToken.None).Result;
+        var resultado = await handler.Handle(new ListAllReservationsQuery(ReservationStatus.Confirmed, 1, 20), CancellationToken.None);
 
         // Assert
         Assert.All(resultado.Items, r => Assert.Equal(ReservationStatus.Confirmed, r.Status));
-        Assert.Equal(1, resultado.Items.Count);
+        Assert.Single(resultado.Items);
     }
 }
