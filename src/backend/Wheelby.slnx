@@ -11,6 +11,7 @@
     <Project Path="src/Core/Documents/Documents.Contracts/Documents.Contracts.csproj" />
     <Project Path="src/Core/Documents/Documents.Domain/Documents.Domain.csproj" />
     <Project Path="src/Core/Documents/Documents.Infrastructure/Documents.Infrastructure.csproj" />
+    <Project Path="src/Core/Documents/Documents.Test/Documents.Test.csproj" />
   </Folder>
   <Folder Name="/Core/Notifications/">
     <Project Path="src/Core/Notifications/Notifications.Application/Notifications.Application.csproj" />
