@@ -451,15 +451,21 @@ GET /vehicles/available?from=2030-01-10T10:00:00Z&to=2030-01-12T10:00:00Z&curren
 
 → **503**. La misma búsqueda **sin** `currency` → **200**.
 
-### 6.2 Ejemplo real de respuesta
+### 6.2 Formato de la respuesta
 
-Con una clave real en `.env`:
+Con una clave real en `.env`, cada vehículo de la búsqueda trae, además de sus datos, los campos de la conversión:
 
 ```
 GET /vehicles/available?from=2030-01-10T10:00:00Z&to=2030-01-12T10:00:00Z&currency=USD
 ```
 
-<!-- PEGAR RESPUESTA REAL -->
+| Campo | Contenido |
+|---|---|
+| `pricePerDay` | Precio publicado, en DOP |
+| `currency` | Siempre `"DOP"` |
+| `convertedPricePerDay` | `pricePerDay × exchangeRate`, redondeado a 2 decimales |
+| `convertedCurrency` | La moneda pedida, por ejemplo `"USD"` |
+| `exchangeRate` | La tasa DOP → moneda que devolvió ExchangeRate-API |
 
 ---
 
