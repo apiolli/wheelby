@@ -6,9 +6,8 @@ Publicación de vehículos, búsqueda de disponibilidad, solicitud, confirmació
 
 ## Requisitos previos
 
-- .NET SDK 10 y Docker Desktop.
-- Todos los comandos se ejecutan desde la carpeta `src/backend` (la que contiene `Wheelby.slnx`).
-- La base de datos y los secretos se preparan siguiendo el README principal (PostgreSQL con Docker Compose y `dotnet user-secrets`).
+- Docker Desktop. El proyecto se levanta con `docker compose up --build` desde la raíz del repositorio, siguiendo la sección «Contenedor» del README principal; la API queda en `http://localhost:8080` (Scalar en `/scalar/v1`).
+- Toda la configuración va en el archivo `.env` de la raíz (copia de `.env.example`). Las consultas SQL se ejecutan con `docker compose exec postgres psql -U wheelby -d wheelby` (sección «Ver los datos en PostgreSQL» del README principal).
 - Al arrancar, la API aplica también las migraciones del módulo Wheelby (esquema `wheelby`, migración `AddVehicles`).
 
 ## Personas de la prueba
@@ -26,7 +25,7 @@ Un Estándar **no** puede publicar hasta que un Administrador le apruebe el perm
 | Ruta | Grupo y política | Qué hace |
 | ---- | ---------------- | -------- |
 | `POST /vehicles` | `/vehicles`, `RequireStandard` | F1: publica un vehículo. 201 con `{ "id" }`. |
-| `GET /vehicles/available?from=&to=&page=&pageSize=` | `/vehicles`, `RequireStandard` | F2: lista vehículos disponibles paginados. 200. |
+| `GET /vehicles/available?from=&to=&page=&pageSize=&currency=` | `/vehicles`, `RequireStandard` | F2: lista vehículos disponibles paginados. 200. `currency` (opcional) convierte los precios, que están en DOP. |
 | `POST /reservations` | `/reservations`, `RequireStandard` | F3: solicita una reserva. 201 con `{ "id" }`. |
 | `GET /reservations/mine?as=renter\|host&page=&pageSize=` | `/reservations`, `RequireStandard` | F6: lista las reservas del usuario (como inquilino o anfitrión). 200. |
 | `POST /reservations/{id}/confirm` | `/reservations`, `RequireStandard` | F4: confirma una reserva. 204. |
@@ -42,7 +41,7 @@ Sin sesión → **401**. Con sesión pero sin el rol del grupo → **403**.
 
 ## Cómo provocar cada criterio de aceptación
 
-Las pruebas se hacen desde Scalar (`/scalar/v1`) y con consultas SQL en un cliente de PostgreSQL (por ejemplo DBeaver: host `localhost`, el puerto de `POSTGRES_PORT`, y la base, usuario y contraseña de tu `.env`). PostgreSQL distingue mayúsculas en los nombres con comillas, así que las consultas llevan comillas dobles.
+Las pruebas se hacen desde Scalar (`/scalar/v1`) y con consultas SQL en la consola de PostgreSQL del contenedor (`docker compose exec postgres psql -U wheelby -d wheelby`; la base no publica su puerto). PostgreSQL distingue mayúsculas en los nombres con comillas, así que las consultas llevan comillas dobles.
 
 Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` de la respuesta y pégalo en el botón de autorización (esquema Bearer) de Scalar.
 
@@ -86,6 +85,19 @@ Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` 
   - `from >= to` → **400**.
   - Rango mayor a 365 días → **400**.
   - Los vehículos del propio inquilino y los que tienen una reserva bloqueante (`Confirmed` o `InProgress`) que solapen el rango no aparecen.
+
+- [x] **RD-10** — Precio en otra moneda. Los precios publicados están en **pesos dominicanos (DOP)** y cada item trae `currency: "DOP"`. Con el parámetro opcional `currency` (3 letras, se normaliza a mayúsculas):
+
+  ```
+  GET /vehicles/available?from=2026-11-05T10:00:00Z&to=2026-11-07T10:00:00Z&page=1&pageSize=20&currency=USD
+  ```
+
+  Cada item agrega `convertedPricePerDay` (redondeado a 2 decimales), `convertedCurrency` y `exchangeRate`, con la tasa DOP→USD de ExchangeRate-API (una sola consulta por búsqueda).
+
+  - Sin `currency`, o con `DOP`, no se llama a la API externa y los tres campos quedan en `null`.
+  - `currency` que no son 3 letras (`US`, `USDX`, `12$`) → **400**.
+  - Moneda que el proveedor no soporta → **400** ("La moneda XYZ no está soportada.").
+  - Sin `ExchangeRate__ApiKey`, con una clave inválida o con la API caída → **503** con un mensaje controlado. Ver la sección «API externa» del README principal.
 
 ### F3 — Solicitar reserva
 

@@ -17,33 +17,13 @@ Registro con activación por correo, sesión, roles, administración de usuarios
 
 ## Requisitos previos
 
-- .NET SDK 10 y Docker Desktop.
-- Un servidor SMTP (por ejemplo Gmail con contraseña de aplicación).
-- Todos los comandos se ejecutan desde la carpeta `src/backend` (la que contiene `Wheelby.slnx`).
-- La base de datos y los secretos se preparan siguiendo el README principal (PostgreSQL con Docker Compose y `dotnet user-secrets`).
+- Docker Desktop. El proyecto se levanta con `docker compose up --build` desde la raíz del repositorio, siguiendo la sección «Contenedor» del README principal; la API queda en `http://localhost:8080` (Scalar en `/scalar/v1`).
+- Opcional: un servidor SMTP (por ejemplo Gmail con contraseña de aplicación) en las variables `Smtp__*` del `.env`. Sin él, los correos se leen de la cola.
+- Toda la configuración va en el archivo `.env` de la raíz (copia de `.env.example`). Las consultas SQL se ejecutan con `docker compose exec postgres psql -U wheelby -d wheelby` (sección «Ver los datos en PostgreSQL» del README principal).
 
 ## Variables de entorno
 
-Nunca se guardan valores en el repositorio: `.env.example` solo trae ejemplos. El archivo `.env` lo lee **solo Docker Compose**. La API y el Worker leen sus valores de `dotnet user-secrets` (separador `:`) o de variables de entorno (separador `__`). Por ejemplo, `Smtp:Host` en user-secrets es `Smtp__Host` como variable de entorno.
-
-Si falta una variable obligatoria, la aplicación que la usa **no arranca** y el mensaje dice cuál falta.
-
-| Variable | ¿Obligatoria? | Para qué sirve | Quién la lee |
-| -------- | ------------- | -------------- | ------------ |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Sí | Crean la base de datos del contenedor y el puerto publicado | Docker Compose |
-| `ConnectionStrings__Postgres` | **Sí** | Conexión a la base donde persisten usuarios, sesiones y correos en cola | API y Worker |
-| `App__ActivationUrl` | **Sí** | URL a la que apunta el enlace del correo de activación (hoy, el endpoint `GET /auth/activate` de la API: `http://localhost:5299/auth/activate`) | API |
-| `Jwt__Key` | **Sí** | Clave secreta con la que se firma la credencial de sesión (mínimo 32 caracteres) | API |
-| `Jwt__Issuer` | **Sí** | Emisor que se escribe y se exige en la credencial | API |
-| `Jwt__Audience` | **Sí** | Destinatario que se escribe y se exige en la credencial | API |
-| `Jwt__ExpirationMinutes` | No (60 por defecto) | Vigencia de la sesión y de su credencial, en minutos | API |
-| `Admin__Email` | **Sí** | Correo del Administrador fijo (rol `Administrator`), que se crea o restaura al arrancar la API | API |
-| `Admin__Password` | **Sí** | Contraseña inicial del Administrador fijo (debe cumplir la política: 8+ caracteres, con letras y números) | API |
-| `Smtp__Host` | **Sí**, para el Worker | Host del servidor de correo saliente | Worker |
-| `Smtp__Port` | **Sí**, para el Worker | Puerto del servidor de correo (587 con STARTTLS) | Worker |
-| `Smtp__User` | **Sí**, para el Worker | Usuario con el que se autentica el envío | Worker |
-| `Smtp__Password` | **Sí**, para el Worker | Contraseña de aplicación del servidor de correo | Worker |
-| `Smtp__From` | **Sí**, para el Worker | Remitente de los correos | Worker |
+Todas se definen en el archivo `.env` de la raíz y se describen en la sección «Variables de configuración» del README principal. Nunca se guardan valores reales en el repositorio: `.env.example` solo trae ejemplos, con los que la aplicación arranca.
 
 Notas:
 
@@ -51,46 +31,16 @@ Notas:
   - token de activación (RF-CA-15): **24 horas** (`User.ActivationTokenLifetime`);
   - código de recuperación (RF-CA-10): **30 minutos** (`User.PasswordResetTokenLifetime`);
   - bloqueo por intentos fallidos (RF-CA-19): **5 intentos, 15 minutos** (`User`).
-- Si falta alguna variable `Jwt__*`, o la clave tiene menos de 32 caracteres, **la API no arranca** y el mensaje lo indica (sin mostrar la clave).
-- Si falta `Admin__Email` o `Admin__Password`, **la API tampoco arranca**: sin Administrador no se puede administrar nada.
-- Secretos de la API (ejecutar desde `src/backend`; usa el puerto de tu API, que aparece en la consola al arrancar):
-
-  ```bash
-  dotnet user-secrets set "App:ActivationUrl" "http://localhost:5299/auth/activate" --project src/Host/Host.WebAPI
-
-  # Genera una clave aleatoria y no la compartas ni la subas al repositorio (PowerShell)
-  $key = [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
-  dotnet user-secrets set "Jwt:Key" $key --project src/Host/Host.WebAPI
-  dotnet user-secrets set "Jwt:Issuer" "wheelby" --project src/Host/Host.WebAPI
-  dotnet user-secrets set "Jwt:Audience" "wheelby-api" --project src/Host/Host.WebAPI
-  dotnet user-secrets set "Jwt:ExpirationMinutes" "60" --project src/Host/Host.WebAPI
-
-  # Administrador fijo (usa tus propios valores)
-  dotnet user-secrets set "Admin:Email" "<correo del administrador>" --project src/Host/Host.WebAPI
-  dotnet user-secrets set "Admin:Password" "<contraseña del administrador>" --project src/Host/Host.WebAPI
-  ```
+- Si falta alguna variable obligatoria (`App__ActivationUrl`, `Jwt__*`, `Admin__*`), `docker compose up` se detiene y dice cuál. Si la clave JWT tiene menos de 32 caracteres o la contraseña del Administrador no cumple la política, la API no arranca y `docker compose logs api` lo indica (sin mostrar el valor).
 
 ## Cómo ejecutar
 
 ```bash
-# 1. Base de datos
-docker compose up -d
-docker compose ps                                 # debe decir "healthy"
-
-# 2. API (aplica las migraciones y el seed del Administrador al arrancar; Scalar en /scalar/v1)
-dotnet run --project src/Host/Host.WebAPI
-
-# 3. Proceso aparte que envía los correos pendientes (una sola pasada)
-dotnet run --project src/Host/Host.Worker
+cp .env.example .env          # PowerShell: Copy-Item .env.example .env
+docker compose up --build
 ```
 
-## Ejecutar el proceso de la cola de correos
-
-```bash
-dotnet run --project src/Host/Host.Worker
-```
-
-Procesa los correos pendientes en una sola pasada y termina. El log dice cuántos se enviaron y cuántos fallaron; el código de salida es `0` si todo salió bien y `1` si alguno falló. Ejecutarlo de nuevo no reenvía los que ya salieron (ver RF-NOT-09 / RF-NOT-12 abajo). Los correos de activación y de recuperación de contraseña solo llegan a la bandeja después de ejecutarlo.
+La API aplica las migraciones y crea el Administrador al arrancar. El servicio `worker` envía los correos pendientes de la cola cada 10 segundos (`Worker__IntervalSeconds`), sin ejecutarlo a mano: `docker compose logs -f worker` muestra `Sent` y `Failed` cada vez que procesa algo. Ejecutarlo de nuevo no reenvía los que ya salieron (ver RF-NOT-09 / RF-NOT-12 abajo).
 
 ## Roles
 
@@ -128,7 +78,7 @@ Contraseñas: al menos 8 caracteres, con letras y números. En las rutas `/admin
 
 ## Cómo provocar cada criterio de aceptación
 
-Las pruebas se hacen desde Scalar (`/scalar/v1`) y con consultas SQL en un cliente de PostgreSQL (por ejemplo DBeaver: host `localhost`, el puerto de `POSTGRES_PORT`, y la base, usuario y contraseña de tu `.env`). PostgreSQL distingue mayúsculas en los nombres con comillas, así que las consultas llevan comillas dobles.
+Las pruebas se hacen desde Scalar (`/scalar/v1`) y con consultas SQL en la consola de PostgreSQL del contenedor (`docker compose exec postgres psql -U wheelby -d wheelby`; la base no publica su puerto). PostgreSQL distingue mayúsculas en los nombres con comillas, así que las consultas llevan comillas dobles.
 
 Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` de la respuesta y pégalo en el botón de autorización (esquema Bearer) de Scalar.
 
@@ -168,7 +118,7 @@ SELECT "To", "Status", "Body" FROM notifications."QueuedEmails" ORDER BY "Create
   SELECT "Email", "ActivatedAt" FROM access_control."Users";   -- ActivatedAt vacío
   ```
 
-  Ejecutar el Worker y confirmar que el correo llega de verdad.
+  En unos segundos el Worker envía el correo; confirmar que llega de verdad.
 
 - [x] **RF-CA-16** — Abrir el enlace de activación (`GET /auth/activate?userId=...&token=...`) → 200 y `ActivatedAt` con valor. **Después** de activar, iniciar sesión funciona. Abrir el mismo enlace una segunda vez → 400 y el estado no cambia. Un `userId` mal formado (`?userId=abc`) también da 400 controlado.
 
@@ -251,7 +201,7 @@ POST /auth/login
 Para las peticiones "construidas a mano" (sin pasar por Scalar) se puede usar PowerShell; ajusta el puerto al de tu API. Un 403 hace que `Invoke-RestMethod` lance una excepción: el código de estado aparece en el error.
 
 ```powershell
-Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/role" `
+Invoke-RestMethod -Method Patch -Uri "http://localhost:8080/admin/users/<id>/role" `
   -Headers @{ Authorization = "Bearer <token de un usuario Estándar>" } `
   -ContentType "application/json" -Body '{"role":"Administrator"}'
 ```
@@ -307,7 +257,7 @@ Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/rol
 | `POST /auth/change-password`                  | Sí            | `{ "currentPassword": "...", "newPassword": "..." }`      | Cambia la propia contraseña; devuelve un token nuevo                     |
 | `POST /admin/users/{id}/force-password-reset` | Administrador | —                                                         | Fuerza el restablecimiento y envía el código por la cola                 |
 
-**Cómo obtener el código:** llega por correo después de ejecutar el Worker. También se puede leer del cuerpo del correo en la cola (consulta de arriba). En la base solo se guarda su hash, nunca el código.
+**Cómo obtener el código:** llega por correo en unos segundos, cuando lo envía el Worker. También se puede leer del cuerpo del correo en la cola (consulta de arriba). En la base solo se guarda su hash, nunca el código.
 
 - [x] **RF-CA-09** — Pedir recuperación con un correo inexistente y con uno existente (y activo) → misma respuesta 200 y mismo cuerpo en ambos casos. Solo el segundo encola un correo. Con un usuario sin activar o desactivado, la respuesta también es la misma y no se encola nada.
 
@@ -330,7 +280,7 @@ Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/rol
 
   3. Pedir dos códigos seguidos y usar el **primero** → 400 (el segundo lo reemplazó).
   4. Un código inventado, o un correo inexistente → el mismo 400 con el mismo mensaje.
-  5. El correo sale por la cola: se ve `Pending` en `notifications."QueuedEmails"` hasta ejecutar el Worker.
+  5. El correo sale por la cola: se ve `Pending` en `notifications."QueuedEmails"` hasta que el Worker lo envía.
 
 - [x] **RF-CA-11** — Con un código válido, definir una contraseña nueva:
 
@@ -365,16 +315,17 @@ Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/rol
 
 ### Correo por cola
 
-- [x] **RF-NOT-08** — Apagar el acceso al servidor SMTP (por ejemplo, poner un `Smtp:Port` inválido como `9999` en los secretos del Worker) y registrar un usuario → la API responde 201 y el correo queda `Pending`.
+- [x] **RF-NOT-08** — Apagar el acceso al servidor SMTP (por ejemplo, poner `Smtp__Port=9999` en `.env` y recrear el Worker con `docker compose up -d worker`) y registrar un usuario → la API responde 201 y el correo queda `Pending`.
 
   ```sql
   SELECT "To", "Status", "SentAt" FROM notifications."QueuedEmails" ORDER BY "CreatedAt" DESC;
   ```
 
-- [x] **RF-NOT-09 / RF-NOT-12** — Restaurar el puerto SMTP correcto y ejecutar el Worker → el log dice `Sent: 1` y el correo llega de verdad (`Status = Sent`, `SentAt` con valor). Ejecutarlo una segunda vez → `Sent: 0`, no se duplica ningún envío.
+- [x] **RF-NOT-09 / RF-NOT-12** — Restaurar el puerto SMTP correcto en `.env` y recrear el Worker → el log dice `Sent: 1` y el correo llega de verdad (`Status = Sent`, `SentAt` con valor). En las vueltas siguientes no vuelve a enviarlo: no se duplica ningún envío.
 
   ```bash
-  dotnet run --project src/Host/Host.Worker
+  docker compose up -d worker
+  docker compose logs -f worker
   ```
 
 - [x] **RF-NOT-13** — Confirmar que las credenciales no aparecen en el repositorio ni en su historial.
@@ -420,7 +371,7 @@ Invoke-RestMethod -Method Patch -Uri "http://localhost:5299/admin/users/<id>/rol
 - **Administrador fijo:** el seed lo crea ya activo, o lo restaura (rol y estado) si fue degradado o desactivado, **sin tocar nunca su contraseña**. `Admin__Email` es una configuración de confianza: si coincide con un usuario ya registrado, ese usuario pasa a ser Administrador al arrancar.
 - **Sin restricciones extra sobre los roles:** por decisión de diseño, un Administrador puede cambiar su propio rol o quitárselo a otro; solo está prohibido que se desactive a sí mismo. Si el sistema se quedara sin Administradores, el seed lo restaura en el siguiente arranque.
 - **Correo por la cola:** las operaciones guardan sus cambios y después encolan el correo. Si el encolado fallara, el usuario puede pedir el reenvío o un código nuevo.
-- **Posible reenvío del mismo correo:** si el Worker se cae justo entre enviar y marcar `Sent`, ese correo se reenvía en la siguiente ejecución.
+- **Posible reenvío del mismo correo:** si el Worker se cae justo entre enviar y marcar `Sent`, ese correo se reenvía en la siguiente vuelta.
 - **Enlace de activación:** hoy abre un endpoint de la API (`GET /auth/activate`). Con un frontend, se cambia `App__ActivationUrl` y se usa `POST /auth/activate`. Un antivirus o cliente de correo que abra el enlace antes que el usuario podría consumir el token.
 - **Credenciales SMTP para el calificador:** no están en el repositorio. Se entregan por separado (comentario de la entrega en Moodle) y se revocan al terminar la calificación.
 

@@ -6,6 +6,13 @@
     <Project Path="src/Core/AccessControl/AccessControl.Domain/AccessControl.Domain.csproj" />
     <Project Path="src/Core/AccessControl/AccessControl.Infrastructure/AccessControl.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/Core/Documents/">
+    <Project Path="src/Core/Documents/Documents.Application/Documents.Application.csproj" />
+    <Project Path="src/Core/Documents/Documents.Contracts/Documents.Contracts.csproj" />
+    <Project Path="src/Core/Documents/Documents.Domain/Documents.Domain.csproj" />
+    <Project Path="src/Core/Documents/Documents.Infrastructure/Documents.Infrastructure.csproj" />
+    <Project Path="src/Core/Documents/Documents.Test/Documents.Test.csproj" />
+  </Folder>
   <Folder Name="/Core/Notifications/">
     <Project Path="src/Core/Notifications/Notifications.Application/Notifications.Application.csproj" />
     <Project Path="src/Core/Notifications/Notifications.Contracts/Notifications.Contracts.csproj" />

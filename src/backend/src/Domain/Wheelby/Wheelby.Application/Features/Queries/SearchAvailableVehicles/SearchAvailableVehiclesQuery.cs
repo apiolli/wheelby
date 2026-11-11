@@ -8,4 +8,5 @@ public sealed record SearchAvailableVehiclesQuery(
     DateTime From,
     DateTime To,
     int Page = 1,
-    int PageSize = 20) : IQuery<PagedResult<VehicleSummaryDTO>>;
+    int PageSize = 20,
+    string? Currency = null) : IQuery<PagedResult<VehicleSummaryDTO>>;

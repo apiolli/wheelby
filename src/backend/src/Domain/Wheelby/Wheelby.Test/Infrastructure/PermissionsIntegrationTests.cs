@@ -76,7 +76,7 @@ public class PermissionsIntegrationTests
     }
 
     [Fact]
-    public async void RF_NEG_06_integracion_publicar_sin_aprobacion_es_rechazado_y_despues_de_aprobar_se_permite()
+    public async Task RF_NEG_06_integracion_publicar_sin_aprobacion_es_rechazado_y_despues_de_aprobar_se_permite()
     {
         // Arrange: ServiceCollection real con AddPermissions + AddWheelby.
         var servicios = new ServiceCollection();
@@ -142,7 +142,7 @@ public class PermissionsIntegrationTests
     }
 
     [Fact]
-    public async void RF_NEG_06_integracion_si_el_administrador_rechaza_publicar_sigue_rechazado()
+    public async Task RF_NEG_06_integracion_si_el_administrador_rechaza_publicar_sigue_rechazado()
     {
         // Arrange
         var servicios = new ServiceCollection();
@@ -198,7 +198,7 @@ public class PermissionsIntegrationTests
     }
 
     [Fact]
-    public async void RF_NEG_06_integracion_catalogo_solicitar_permiso_wheelby_es_aceptado()
+    public async Task RF_NEG_06_integracion_catalogo_solicitar_permiso_wheelby_es_aceptado()
     {
         // Arrange
         var servicios = new ServiceCollection();

@@ -4,7 +4,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-Host.Worker-538ff79b-5922-46e6-b606-f337b577d276</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

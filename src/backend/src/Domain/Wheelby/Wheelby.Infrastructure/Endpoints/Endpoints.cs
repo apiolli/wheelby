@@ -48,14 +48,17 @@ public static class WheelbyEndpoints
             DateTimeOffset to,
             int? page,
             int? pageSize,
+            string? currency,
             ISender sender,
             CancellationToken ct) =>
         {
+            // Precios en DOP; currency (opcional) pide además la conversión.
             var query = new SearchAvailableVehiclesQuery(
                 from.UtcDateTime,
                 to.UtcDateTime,
                 page ?? 1,
-                pageSize ?? 20);
+                pageSize ?? 20,
+                string.IsNullOrWhiteSpace(currency) ? null : currency.Trim().ToUpperInvariant());
             return Results.Ok(await sender.Send(query, ct));
         });
 

@@ -1,19 +1,13 @@
+using Host.Worker;
 using Notifications.Infrastructure;
 using Shared.Application;
 
-var builder = Host.CreateApplicationBuilder(args);
+var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(args);
 
 builder.Services.AddSharedApplication();
 builder.Services.AddNotifications(builder.Configuration);
+builder.Services.AddHostedService<EmailDispatchWorker>();
 
+// Las migraciones las aplica solo la API: el Worker nunca migra el esquema.
 using var host = builder.Build();
-
-var logger = host.Services.GetRequiredService<ILogger<Program>>();
-
-// Procesa una sola pasada y termina
-await host.Services.ApplyNotificationsMigrationsAsync();
-var (sent, failed) = await host.Services.SendPendingEmailsAsync();
-
-logger.LogInformation("Pending emails processed. Sent: {Sent}. Failed: {Failed}.", sent, failed);
-
-return failed > 0 ? 1 : 0;
+await host.RunAsync();

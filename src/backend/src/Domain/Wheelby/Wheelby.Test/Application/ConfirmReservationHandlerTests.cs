@@ -34,14 +34,14 @@ public class ConfirmReservationHandlerTests
     }
 
     [Fact]
-    public void RF_NEG_02_F4_dueno_confirma_pasa_a_Confirmed()
+    public async Task RF_NEG_02_F4_dueno_confirma_pasa_a_Confirmed()
     {
         // Arrange
         var (handler, vehicles, reservations, unitOfWork, currentUser) = CrearHandler();
         var reserva = reservations.Reservations.First();
 
         // Act
-        handler.Handle(new ConfirmReservationCommand(reserva.Id), CancellationToken.None).GetAwaiter().GetResult();
+        await handler.Handle(new ConfirmReservationCommand(reserva.Id), CancellationToken.None);
 
         // Assert
         Assert.Equal(ReservationStatus.Confirmed, reserva.Status);
@@ -74,7 +74,7 @@ public class ConfirmReservationHandlerTests
         // Otra reserva Confirmed que solapa las mismas fechas del mismo vehículo
         var otra = Reservation.Create(reserva.VehicleId, Guid.NewGuid(), Inicio, Fin, Ahora);
         otra.TransitionTo(ReservationStatus.Confirmed, ReservationActor.Host, Ahora, null);
-        reservations.AddAsync(otra).GetAwaiter().GetResult();
+        await reservations.AddAsync(otra);
 
         // Act & Assert
         await Assert.ThrowsAsync<ConflictException>(async () =>
@@ -94,10 +94,10 @@ public class ConfirmReservationHandlerTests
         var clock = new FixedClock(Ahora);
 
         var vehiculo = Vehicle.Create(currentUser.Id, "Toyota", "Corolla", 2020, "ABC-123", 15000m, Ahora);
-        vehicles.AddAsync(vehiculo).GetAwaiter().GetResult();
+        await vehicles.AddAsync(vehiculo);
 
         var reserva = Reservation.Create(vehiculo.Id, Guid.NewGuid(), Inicio, Fin, Ahora);
-        reservations.AddAsync(reserva).GetAwaiter().GetResult();
+        await reservations.AddAsync(reserva);
 
         var rejectHandler = new Wheelby.Application.Features.RejectReservation.RejectReservationCommandHandler(
             vehicles, reservations, unitOfWork, currentUser, clock);

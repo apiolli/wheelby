@@ -17,9 +17,8 @@ Solicitud de permisos, aprobación o rechazo por parte de un Administrador, conc
 
 ## Requisitos previos
 
-- .NET SDK 10 y Docker Desktop.
-- Todos los comandos se ejecutan desde la carpeta `src/backend` (la que contiene `Wheelby.slnx`).
-- La base de datos y los secretos se preparan siguiendo el README principal (PostgreSQL con Docker Compose y `dotnet user-secrets`).
+- Docker Desktop. El proyecto se levanta con `docker compose up --build` desde la raíz del repositorio, siguiendo la sección «Contenedor» del README principal; la API queda en `http://localhost:8080` (Scalar en `/scalar/v1`).
+- Toda la configuración va en el archivo `.env` de la raíz (copia de `.env.example`). Las consultas SQL se ejecutan con `docker compose exec postgres psql -U wheelby -d wheelby` (sección «Ver los datos en PostgreSQL» del README principal).
 - Al arrancar, la API aplica también las migraciones del módulo Permissions (esquema `permissions`).
 
 ## Personas de la prueba
@@ -58,7 +57,7 @@ Las rutas de administración cuelgan de un único grupo, `/admin/permissions`, p
 
 ## Cómo provocar cada criterio de aceptación
 
-Las pruebas se hacen desde Scalar (`/scalar/v1`) y con consultas SQL en un cliente de PostgreSQL (por ejemplo DBeaver: host `localhost`, el puerto de `POSTGRES_PORT`, y la base, usuario y contraseña de tu `.env`). PostgreSQL distingue mayúsculas en los nombres con comillas, así que las consultas llevan comillas dobles.
+Las pruebas se hacen desde Scalar (`/scalar/v1`) y con consultas SQL en la consola de PostgreSQL del contenedor (`docker compose exec postgres psql -U wheelby -d wheelby`; la base no publica su puerto). PostgreSQL distingue mayúsculas en los nombres con comillas, así que las consultas llevan comillas dobles.
 
 Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` de la respuesta y pégalo en el botón de autorización (esquema Bearer) de Scalar. Para probar las rutas de administración, pega el token del Administrador.
 
@@ -98,7 +97,7 @@ Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` 
   Con el **token de Estándar**, la misma ruta responde **403**:
 
   ```powershell
-  Invoke-RestMethod -Method Get -Uri "http://localhost:5299/admin/permissions/requests?page=1&pageSize=20" `
+  Invoke-RestMethod -Method Get -Uri "http://localhost:8080/admin/permissions/requests?page=1&pageSize=20" `
     -Headers @{ Authorization = "Bearer <token de un usuario Estándar>" }
   ```
 
@@ -240,12 +239,13 @@ Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` 
 
 ## Pruebas automáticas
 
-Las 71 pruebas de `Permissions.Test` están en `src/backend/src/Core/Permissions/Permissions.Test/` y se ejecutan sin levantar la API ni PostgreSQL:
+Las 71 pruebas de `Permissions.Test` están en `src/backend/src/Core/Permissions/Permissions.Test/` y se ejecutan sin levantar la API ni PostgreSQL, junto con las del resto del proyecto, desde la raíz del repositorio y sin instalar .NET:
 
 ```bash
-cd src/backend
-dotnet test
+docker build --target test .
 ```
+
+Con el SDK de .NET 10 instalado, el equivalente es `cd src/backend` y `dotnet test`. Ver la sección «Pruebas» del README principal.
 
 Cubren el dominio (reglas y matriz completa de transiciones), los casos de uso (handlers con dobles de sus puertos) e infraestructura (`PermissionRequestReadStore` y `PermissionChecker` sobre EF InMemory). Cada prueba lleva el ID del requisito en el nombre (`RF_GP_0X_...`) y el README principal enumera los defectos que la suite detecta.
 

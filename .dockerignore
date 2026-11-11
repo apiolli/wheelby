@@ -1,0 +1,13 @@
+# Solo entra a la imagen lo necesario para compilar el backend.
+.git
+.github
+**/bin
+**/obj
+**/TestResults
+**/node_modules
+src/frontend
+docs
+.env
+**/.vs
+**/.idea
+**/*.user
