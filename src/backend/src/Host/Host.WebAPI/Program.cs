@@ -46,7 +46,8 @@ await app.Services.ApplyWheelbyMigrationsAsync();
 await app.Services.ApplyDocumentsMigrationsAsync();
 await app.Services.SeedAdministratorAsync();
 
-if (app.Environment.IsDevelopment())
+// En el contenedor se corre en Production con Scalar activo (OpenApi__Enabled=true) para la revisión.
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("OpenApi:Enabled"))
 {
     app.MapOpenApi();                
     app.MapScalarApiReference(options =>
