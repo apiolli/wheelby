@@ -359,7 +359,11 @@ Hacen falta tres tokens: **anfitrión** (un Estándar), **inquilino** (otro Est�
    ```
 
    → **409** "Transición InProgress → Cancelled prohibida: Un alquiler en curso no se cancela; debe completarse."
-8. Con el **token de inquilino**, `GET /reservations/mine?as=renter&page=1&pageSize=20` → la reserva sigue en `InProgress`: el estado no cambió.
+8. El estado no cambió: la reserva sigue en `InProgress`.
+
+   ```bash
+   docker compose exec postgres psql -U wheelby -d wheelby -c "SELECT \"Status\" FROM wheelby.\"Reservations\" WHERE \"Id\" = '<reserva>';"
+   ```
 
 ---
 
