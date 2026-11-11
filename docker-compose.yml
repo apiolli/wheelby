@@ -33,6 +33,13 @@ services:
     environment:
       <<: *postgres-connection
       OpenApi__Enabled: "true"
+      # Sin estas variables la API no arranca: compose se detiene antes y dice cuál falta.
+      App__ActivationUrl: ${App__ActivationUrl:?Falta App__ActivationUrl en .env}
+      Jwt__Key: ${Jwt__Key:?Falta Jwt__Key en .env}
+      Jwt__Issuer: ${Jwt__Issuer:?Falta Jwt__Issuer en .env}
+      Jwt__Audience: ${Jwt__Audience:?Falta Jwt__Audience en .env}
+      Admin__Email: ${Admin__Email:?Falta Admin__Email en .env}
+      Admin__Password: ${Admin__Password:?Falta Admin__Password en .env}
     ports:
       - "${API_PORT:-8080}:8080"
     volumes:
