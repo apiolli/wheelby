@@ -26,7 +26,7 @@ Un Estándar **no** puede publicar hasta que un Administrador le apruebe el perm
 | Ruta | Grupo y política | Qué hace |
 | ---- | ---------------- | -------- |
 | `POST /vehicles` | `/vehicles`, `RequireStandard` | F1: publica un vehículo. 201 con `{ "id" }`. |
-| `GET /vehicles/available?from=&to=&page=&pageSize=` | `/vehicles`, `RequireStandard` | F2: lista vehículos disponibles paginados. 200. |
+| `GET /vehicles/available?from=&to=&page=&pageSize=&currency=` | `/vehicles`, `RequireStandard` | F2: lista vehículos disponibles paginados. 200. `currency` (opcional) convierte los precios, que están en DOP. |
 | `POST /reservations` | `/reservations`, `RequireStandard` | F3: solicita una reserva. 201 con `{ "id" }`. |
 | `GET /reservations/mine?as=renter\|host&page=&pageSize=` | `/reservations`, `RequireStandard` | F6: lista las reservas del usuario (como inquilino o anfitrión). 200. |
 | `POST /reservations/{id}/confirm` | `/reservations`, `RequireStandard` | F4: confirma una reserva. 204. |
@@ -86,6 +86,19 @@ Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` 
   - `from >= to` → **400**.
   - Rango mayor a 365 días → **400**.
   - Los vehículos del propio inquilino y los que tienen una reserva bloqueante (`Confirmed` o `InProgress`) que solapen el rango no aparecen.
+
+- [x] **RD-10** — Precio en otra moneda. Los precios publicados están en **pesos dominicanos (DOP)** y cada item trae `currency: "DOP"`. Con el parámetro opcional `currency` (3 letras, se normaliza a mayúsculas):
+
+  ```
+  GET /vehicles/available?from=2026-11-05T10:00:00Z&to=2026-11-07T10:00:00Z&page=1&pageSize=20&currency=USD
+  ```
+
+  Cada item agrega `convertedPricePerDay` (redondeado a 2 decimales), `convertedCurrency` y `exchangeRate`, con la tasa DOP→USD de ExchangeRate-API (una sola consulta por búsqueda).
+
+  - Sin `currency`, o con `DOP`, no se llama a la API externa y los tres campos quedan en `null`.
+  - `currency` que no son 3 letras (`US`, `USDX`, `12$`) → **400**.
+  - Moneda que el proveedor no soporta → **400** ("La moneda XYZ no está soportada.").
+  - Sin `ExchangeRate__ApiKey`, con una clave inválida o con la API caída → **503** con un mensaje controlado. Ver la sección «API externa» del README principal.
 
 ### F3 — Solicitar reserva
 

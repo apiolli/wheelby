@@ -4,7 +4,7 @@ Marketplace de alquiler de vehículos entre particulares. Backend en C# (.NET 10
 
 Programación III · ITLA · 2026-C-3 · Práctica 4
 
-**Todo el proyecto corre en contenedores**: PostgreSQL, la API y el Worker de correos se levantan con un solo comando, `docker compose up --build`, desde la raíz del repositorio. No hace falta instalar .NET ni PostgreSQL. Para comprobar cada criterio de aceptación, ver [Cómo verificar los criterios](#6-cómo-verificar-los-criterios).
+**Todo el proyecto corre en contenedores**: PostgreSQL, la API y el Worker de correos se levantan con un solo comando, `docker compose up --build`, desde la raíz del repositorio. No hace falta instalar .NET ni PostgreSQL. Para comprobar cada criterio de aceptación, ver [Cómo verificar los criterios](#7-cómo-verificar-los-criterios).
 
 ---
 
@@ -15,13 +15,14 @@ Programación III · ITLA · 2026-C-3 · Práctica 4
 3. [Correos de activación y recuperación](#3-correos-de-activación-y-recuperación)
 4. [Los cinco frentes: Control de acceso y Gestión de permisos](#4-los-cinco-frentes-control-de-acceso-y-gestión-de-permisos)
 5. [Manejador de documentos](#5-manejador-de-documentos)
-6. [Cómo verificar los criterios](#6-cómo-verificar-los-criterios)
+6. [API externa](#6-api-externa)
+7. [Cómo verificar los criterios](#7-cómo-verificar-los-criterios)
    - [Pruebas](#pruebas)
    - [Defectos](#defectos)
-7. [Variables de configuración](#7-variables-de-configuración)
-8. [Ver los datos en PostgreSQL](#8-ver-los-datos-en-postgresql)
-9. [Problemas frecuentes](#9-problemas-frecuentes)
-10. [Estructura del repositorio](#10-estructura-del-repositorio)
+8. [Variables de configuración](#8-variables-de-configuración)
+9. [Ver los datos en PostgreSQL](#9-ver-los-datos-en-postgresql)
+10. [Problemas frecuentes](#10-problemas-frecuentes)
+11. [Estructura del repositorio](#11-estructura-del-repositorio)
 
 ---
 
@@ -34,7 +35,7 @@ Programación III · ITLA · 2026-C-3 · Práctica 4
 
 - **Solo Docker.** No hace falta instalar .NET, PostgreSQL ni `dotnet-ef`: la API y el Worker se compilan dentro de la imagen y la API crea las tablas sola al arrancar.
 - **Docker Desktop debe estar abierto y en estado "running"** antes de los pasos siguientes.
-- Opcional: credenciales SMTP para que los correos lleguen de verdad (sección 2.3) y una clave de ExchangeRate-API para convertir precios.
+- Opcional: credenciales SMTP para que los correos lleguen de verdad (sección 2.3) y una clave de ExchangeRate-API para convertir precios (sección 6).
 
 Los comandos se muestran para **PowerShell (Windows)** y, donde cambian, para **bash** (Git Bash, macOS o Linux).
 
@@ -154,7 +155,7 @@ Cada usuario tiene **exactamente un rol**. En las peticiones, en las respuestas 
 
 ### Rutas y formato de los cuerpos
 
-Todos los cuerpos son JSON (`Content-Type: application/json`) y los nombres de los campos van en camelCase. Los errores se devuelven como `application/problem+json`: **400** datos inválidos, **401** sin sesión, **403** sin permiso, **404** no existe, **409** estado que no admite la operación. Una ruta con sesión exige la cabecera `Authorization: Bearer <accessToken>`.
+Todos los cuerpos son JSON (`Content-Type: application/json`) y los nombres de los campos van en camelCase. Los errores se devuelven como `application/problem+json`: **400** datos inválidos, **401** sin sesión, **403** sin permiso, **404** no existe, **409** estado que no admite la operación y **503** un servicio externo no está disponible (sección 6). Una ruta con sesión exige la cabecera `Authorization: Bearer <accessToken>`.
 
 | Ruta | Sesión | Cuerpo de la petición | Respuesta correcta |
 |---|---|---|---|
@@ -366,13 +367,59 @@ SELECT "Id", "FileName", "OwnerId", "UploadedAt", "DeletedAt", "DeletedBy" FROM 
 
 ---
 
-## 6. Cómo verificar los criterios
+## 6. API externa
+
+| | |
+|---|---|
+| **API** | [ExchangeRate-API](https://www.exchangerate-api.com), endpoint de par: `GET https://v6.exchangerate-api.com/v6/pair/DOP/<moneda>` |
+| **Operación que la usa** | `GET /vehicles/available?...&currency=USD` (búsqueda de vehículos) |
+| **Variable** | `ExchangeRate__ApiKey` en `.env` |
+
+Los precios publicados están en **pesos dominicanos (DOP)**. Si la búsqueda trae `currency` (3 letras, por ejemplo `USD` o `EUR`), cada vehículo agrega `convertedPricePerDay` (redondeado a 2 decimales), `convertedCurrency` y `exchangeRate`. Sin `currency`, o con `DOP`, la búsqueda no llama a la API externa.
+
+**Cómo obtener una clave gratis:** regístrate en [exchangerate-api.com](https://www.exchangerate-api.com) con tu correo; el panel muestra la clave (plan gratis: 1500 llamadas al mes). Pégala en `.env` como `ExchangeRate__ApiKey=<tu clave>` y reinicia con `docker compose up`. La clave viaja en la cabecera `Authorization: Bearer` y nunca aparece en la URL ni en el log. Cada tasa se guarda en memoria 60 minutos para no gastar la cuota.
+
+### 6.1 Sin clave o con la API caída
+
+El resto del proyecto funciona igual. Solo la búsqueda **con** `currency` responde **503** con un mensaje controlado:
+
+| Situación | Respuesta |
+|---|---|
+| `ExchangeRate__ApiKey` vacía | **503** "La conversión de moneda no está disponible: falta configurar ExchangeRate__ApiKey." |
+| Clave de ejemplo o inválida | **503** "El servicio de tasas de cambio rechazó la clave configurada." |
+| La API no responde o responde algo inválido | **503** "El servicio de tasas de cambio no respondió. Intenta más tarde." |
+| Se agotó la cuota | **503** "Se agotó la cuota del servicio de tasas de cambio. Intenta más tarde." |
+| Moneda que el proveedor no conoce (por ejemplo `XYZ`) | **400** "La moneda XYZ no está soportada." |
+| `currency` que no son 3 letras (`US`, `12$`) | **400** |
+
+Para comprobarlo con la clave de ejemplo de `.env.example`, con el token de un Estándar:
+
+```
+GET /vehicles/available?from=2030-01-10T10:00:00Z&to=2030-01-12T10:00:00Z&currency=USD
+```
+
+→ **503**. La misma búsqueda **sin** `currency` → **200**.
+
+### 6.2 Ejemplo real de respuesta
+
+Con una clave real en `.env`:
+
+```
+GET /vehicles/available?from=2030-01-10T10:00:00Z&to=2030-01-12T10:00:00Z&currency=USD
+```
+
+<!-- PEGAR RESPUESTA REAL -->
+
+---
+
+## 7. Cómo verificar los criterios
 
 - **Control de acceso y correo por cola** (RF-CA-01 a 22, RF-NOT-08, 09, 12, 13): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/control-acceso/README.md](docs/control-acceso/README.md).
 - **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquina-de-estados.md](docs/maquina-de-estados.md).
 - **Gestión de permisos** (RF-GP-01 a 07, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/gestion-permisos/README.md](docs/gestion-permisos/README.md).
 - **Módulo de negocio Wheelby** (RF-NEG-01 a 06, RD-03, RD-07, RD-08, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/wheelby/README.md](docs/wheelby/README.md).
 - **Manejador de documentos** (RF-DOC-01 a 05): sección 5 de este documento.
+- **API externa** (RD-07, RD-08, RD-10): sección 6 de este documento.
 
 Atajos útiles:
 
@@ -509,7 +556,7 @@ dotnet test                         # debe reportar las pruebas fallidas de la t
 
 ---
 
-## 7. Variables de configuración
+## 8. Variables de configuración
 
 Todas se definen en **`.env`** (copia de `.env.example`). Ningún valor real está en el repositorio: `.env.example` solo trae valores de ejemplo, con los que la aplicación arranca. Las que van con `__` son la forma de entorno de las claves de .NET (`Jwt__Key` = `Jwt:Key`).
 
@@ -526,6 +573,10 @@ Todas se definen en **`.env`** (copia de `.env.example`). Ningún valor real est
 | `Worker__IntervalSeconds` | No (10, mínimo 1) | Segundos entre vueltas del Worker | Worker |
 | `Documents__MaxFileSizeBytes` | No (10485760 = 10 MB) | Tamaño máximo de cada documento | API |
 | `Documents__StoragePath` | No (la imagen usa `/app/data/documents`) | Carpeta de los documentos, dentro del volumen `wheelby-documents` | API |
+| `ExchangeRate__ApiKey` | No | Clave de ExchangeRate-API. Sin ella, solo la búsqueda con `currency` responde 503 | API |
+| `ExchangeRate__BaseUrl` | No (`https://v6.exchangerate-api.com/v6/`) | Dirección del proveedor | API |
+| `ExchangeRate__TimeoutSeconds` | No (5) | Tiempo máximo de espera de la API externa | API |
+| `ExchangeRate__CacheMinutes` | No (60) | Minutos que se guarda cada tasa en memoria | API |
 | `OpenApi__Enabled` | No (el compose la pone en `true`) | Publica Scalar y OpenAPI fuera de `Development` | API |
 | `Cors__AllowedOrigins__0` | No (`http://localhost:5173`) | Origen permitido para el frontend | API |
 
@@ -535,7 +586,7 @@ Valores fijados en el código (no son variables): vigencia del enlace de activac
 
 ---
 
-## 8. Ver los datos en PostgreSQL
+## 9. Ver los datos en PostgreSQL
 
 La base no publica su puerto: se consulta desde el propio contenedor, sin instalar nada.
 
@@ -560,7 +611,7 @@ Sal con `\q`.
 
 ---
 
-## 9. Problemas frecuentes
+## 10. Problemas frecuentes
 
 | Síntoma | Causa | Solución |
 |---|---|---|
@@ -578,7 +629,7 @@ Sal con `\q`.
 
 ---
 
-## 10. Estructura del repositorio
+## 11. Estructura del repositorio
 
 ```
 <raíz del repositorio>/
