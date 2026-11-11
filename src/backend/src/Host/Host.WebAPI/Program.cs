@@ -14,11 +14,14 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer<BearerSecu
 builder.Services.AddProblemDetails();
 builder.Services.AddSharedApplication();  
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:5173"];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -34,9 +37,10 @@ builder.Services.AddDocuments(builder.Configuration);
 var app = builder.Build();
 
 app.UseExceptionHandler();
+// CORS va antes de la autenticación: así las preflight OPTIONS reciben sus cabeceras.
+app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseCors("FrontendPolicy");
 
 // Aqui lo que hago es aplicar las migraciones de cada modulo al iniciar
 await app.Services.ApplyNotificationsMigrationsAsync();
