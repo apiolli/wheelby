@@ -1,7 +1,0 @@
-# Solo para desarrollo local con dotnet run: publica PostgreSQL en el puerto 5432.
-# Uso explícito: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
-# El comando de revisión (docker compose up --build) no carga este archivo.
-services:
-  postgres:
-    ports:
-      - "5432:5432"
