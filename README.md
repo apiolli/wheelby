@@ -4,7 +4,7 @@ Marketplace de alquiler de vehículos entre particulares. Backend en C# (.NET 10
 
 Programación III · ITLA · 2026-C-3 · Práctica 4
 
-**Todo el proyecto corre en contenedores**: PostgreSQL, la API y el Worker de correos se levantan con un solo comando, `docker compose up --build`, desde la raíz del repositorio. No hace falta instalar .NET ni PostgreSQL. Para comprobar cada criterio de aceptación, ver [Cómo verificar los criterios](#5-cómo-verificar-los-criterios).
+**Todo el proyecto corre en contenedores**: PostgreSQL, la API y el Worker de correos se levantan con un solo comando, `docker compose up --build`, desde la raíz del repositorio. No hace falta instalar .NET ni PostgreSQL. Para comprobar cada criterio de aceptación, ver [Cómo verificar los criterios](#6-cómo-verificar-los-criterios).
 
 ---
 
@@ -14,13 +14,14 @@ Programación III · ITLA · 2026-C-3 · Práctica 4
 2. [Contenedor](#2-contenedor)
 3. [Correos de activación y recuperación](#3-correos-de-activación-y-recuperación)
 4. [Los cinco frentes: Control de acceso y Gestión de permisos](#4-los-cinco-frentes-control-de-acceso-y-gestión-de-permisos)
-5. [Cómo verificar los criterios](#5-cómo-verificar-los-criterios)
+5. [Manejador de documentos](#5-manejador-de-documentos)
+6. [Cómo verificar los criterios](#6-cómo-verificar-los-criterios)
    - [Pruebas](#pruebas)
    - [Defectos](#defectos)
-6. [Variables de configuración](#6-variables-de-configuración)
-7. [Ver los datos en PostgreSQL](#7-ver-los-datos-en-postgresql)
-8. [Problemas frecuentes](#8-problemas-frecuentes)
-9. [Estructura del repositorio](#9-estructura-del-repositorio)
+7. [Variables de configuración](#7-variables-de-configuración)
+8. [Ver los datos en PostgreSQL](#8-ver-los-datos-en-postgresql)
+9. [Problemas frecuentes](#9-problemas-frecuentes)
+10. [Estructura del repositorio](#10-estructura-del-repositorio)
 
 ---
 
@@ -99,10 +100,11 @@ Si falta una variable obligatoria en `.env`, `docker compose up` se detiene ante
 
 Los datos viven en dos volúmenes con nombre: `wheelby-pgdata` (la base) y `wheelby-documents` (los archivos subidos).
 
-1. Regístrate e inicia sesión (frentes 1 y 2 de la sección 4).
+1. Regístrate e inicia sesión (frentes 1 y 2 de la sección 4), y sube un documento (sección 5).
 2. Detén todo con `docker compose down` (**sin** `-v`).
 3. Vuelve a levantarlo con `docker compose up`.
 4. Inicia sesión con el mismo usuario → **200**.
+5. `GET /documents` lista el documento y `GET /documents/{id}/content` lo descarga con el mismo contenido.
 
 ---
 
@@ -313,12 +315,64 @@ ORDER BY "CreatedAt" DESC;
 
 ---
 
-## 5. Cómo verificar los criterios
+## 5. Manejador de documentos
+
+Cualquier usuario con sesión (Estándar o Administrador) sube, lista, descarga y elimina documentos. Un Estándar solo ve y maneja **los suyos**; el Administrador, los de todos. Los archivos se guardan en el volumen `wheelby-documents` y sus datos (nombre, tipo, tamaño, fecha y quién lo subió) en la tabla `documents."Documents"`.
+
+| Ruta | Respuesta correcta |
+|---|---|
+| `POST /documents` (formulario con el campo `file`) | **201** `{ "id": "..." }` |
+| `GET /documents?page=1&pageSize=20` | **200**, lista paginada sin los eliminados |
+| `GET /documents/{id}/content` | **200**, el archivo como adjunto (`Content-Disposition: attachment`) |
+| `DELETE /documents/{id}` | **204** |
+
+### 5.1 Subir
+
+- **Desde Scalar:** abre `POST /documents`, pega tu token, elige un archivo en el campo `file` y envía → **201** con el `id`.
+- **Con curl** (en PowerShell usa `curl.exe` para no llamar al alias de `Invoke-WebRequest`):
+
+  ```bash
+  curl -X POST http://localhost:8080/documents -H "Authorization: Bearer <token>" -F "file=@contrato.pdf"
+  ```
+
+Rechazos:
+
+- Sin el campo `file` → **400** "Debes adjuntar un archivo en el campo file."
+- Archivo vacío → **400** "El archivo está vacío."
+- Más grande que `Documents__MaxFileSizeBytes` (10 MB por defecto) → **400** con el límite en MB.
+
+### 5.2 Listar, descargar y eliminar
+
+1. `GET /documents?page=1&pageSize=20` → **200**. Cada elemento trae `id`, `ownerId`, `fileName`, `contentType`, `sizeBytes` y `uploadedAt`.
+2. `GET /documents/<id>/content` → **200** y se descarga el archivo con su nombre original. Con curl: `curl -OJ -H "Authorization: Bearer <token>" http://localhost:8080/documents/<id>/content`.
+3. `DELETE /documents/<id>` → **204**. El documento ya no se lista y descargarlo da **404**. Eliminarlo otra vez → **404**.
+
+### 5.3 Otro usuario no puede descargar ni eliminar
+
+1. El usuario A sube un documento (`<id>`).
+2. El usuario B (otro Estándar) pide `GET /documents/<id>/content` → **403** "No tienes permiso para acceder a este documento."
+3. El usuario B pide `DELETE /documents/<id>` → **403**, y el documento sigue intacto.
+4. El Administrador sí puede descargarlo → **200**.
+
+### 5.4 La eliminación es lógica
+
+Después de eliminar, la fila **sigue** en la base, con quién y cuándo la eliminó, y el archivo sigue en el volumen:
+
+```sql
+SELECT "Id", "FileName", "OwnerId", "UploadedAt", "DeletedAt", "DeletedBy" FROM documents."Documents" ORDER BY "UploadedAt" DESC;
+```
+
+`DeletedAt` y `DeletedBy` tienen valor. (Cómo abrir `psql`: sección 3.)
+
+---
+
+## 6. Cómo verificar los criterios
 
 - **Control de acceso y correo por cola** (RF-CA-01 a 22, RF-NOT-08, 09, 12, 13): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/control-acceso/README.md](docs/control-acceso/README.md).
 - **Máquina de estados del negocio** (RF-NEG-03, 04, 05, RD-04): tabla de transiciones y ubicación en el código en [docs/maquina-de-estados.md](docs/maquina-de-estados.md).
 - **Gestión de permisos** (RF-GP-01 a 07, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/gestion-permisos/README.md](docs/gestion-permisos/README.md).
 - **Módulo de negocio Wheelby** (RF-NEG-01 a 06, RD-03, RD-07, RD-08, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/wheelby/README.md](docs/wheelby/README.md).
+- **Manejador de documentos** (RF-DOC-01 a 05): sección 5 de este documento.
 
 Atajos útiles:
 
@@ -455,7 +509,7 @@ dotnet test                         # debe reportar las pruebas fallidas de la t
 
 ---
 
-## 6. Variables de configuración
+## 7. Variables de configuración
 
 Todas se definen en **`.env`** (copia de `.env.example`). Ningún valor real está en el repositorio: `.env.example` solo trae valores de ejemplo, con los que la aplicación arranca. Las que van con `__` son la forma de entorno de las claves de .NET (`Jwt__Key` = `Jwt:Key`).
 
@@ -470,6 +524,8 @@ Todas se definen en **`.env`** (copia de `.env.example`). Ningún valor real est
 | `Admin__Email`, `Admin__Password` | **Sí** | Administrador fijo (rol `Administrator`), que la API crea al arrancar. Contraseña de 8+ caracteres, con letras y números | API |
 | `Smtp__Host`, `Smtp__Port`, `Smtp__User`, `Smtp__Password`, `Smtp__From` | Para que lleguen los correos | Servidor de correo saliente (587, STARTTLS). Las credenciales reales van en el comentario de Moodle | Worker |
 | `Worker__IntervalSeconds` | No (10, mínimo 1) | Segundos entre vueltas del Worker | Worker |
+| `Documents__MaxFileSizeBytes` | No (10485760 = 10 MB) | Tamaño máximo de cada documento | API |
+| `Documents__StoragePath` | No (la imagen usa `/app/data/documents`) | Carpeta de los documentos, dentro del volumen `wheelby-documents` | API |
 | `OpenApi__Enabled` | No (el compose la pone en `true`) | Publica Scalar y OpenAPI fuera de `Development` | API |
 | `Cors__AllowedOrigins__0` | No (`http://localhost:5173`) | Origen permitido para el frontend | API |
 
@@ -479,7 +535,7 @@ Valores fijados en el código (no son variables): vigencia del enlace de activac
 
 ---
 
-## 7. Ver los datos en PostgreSQL
+## 8. Ver los datos en PostgreSQL
 
 La base no publica su puerto: se consulta desde el propio contenedor, sin instalar nada.
 
@@ -497,13 +553,14 @@ SELECT * FROM permissions."PermissionRequests";
 SELECT * FROM permissions."PermissionGrants";
 SELECT * FROM wheelby."Vehicles";
 SELECT * FROM wheelby."Reservations";
+SELECT * FROM documents."Documents";
 ```
 
 Sal con `\q`.
 
 ---
 
-## 8. Problemas frecuentes
+## 9. Problemas frecuentes
 
 | Síntoma | Causa | Solución |
 |---|---|---|
@@ -521,7 +578,7 @@ Sal con `\q`.
 
 ---
 
-## 9. Estructura del repositorio
+## 10. Estructura del repositorio
 
 ```
 <raíz del repositorio>/
@@ -545,6 +602,7 @@ Sal con `\q`.
          ├─ Shared/                  SharedKernel y Shared.Application
          ├─ Core/
          │  ├─ AccessControl/        Control de acceso
+         │  ├─ Documents/            Manejador de documentos (incluye Documents.Test)
          │  ├─ Notifications/        Cola de correos
          │  └─ Permissions/          Gestión de permisos (incluye Permissions.Test)
          └─ Domain/
