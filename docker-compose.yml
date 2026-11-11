@@ -34,6 +34,9 @@ services:
       OpenApi__Enabled: "true"
     ports:
       - "${API_PORT:-8080}:8080"
+    volumes:
+      # RF-DOC-05: los archivos subidos sobreviven a docker compose down.
+      - wheelby-documents:/app/data/documents
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,3 +57,4 @@ services:
 
 volumes:
   wheelby-pgdata:
+  wheelby-documents:
