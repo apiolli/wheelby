@@ -3,8 +3,9 @@
 # Solo la API publica un puerto. Los secretos llegan desde .env (copia de .env.example).
 
 x-postgres-connection: &postgres-connection
-  # Se arma aquí para no repetir la contraseña en .env.
-  ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:?Falta POSTGRES_DB en .env};Username=${POSTGRES_USER:?Falta POSTGRES_USER en .env};Password=${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+  # Se arma aquí para no repetir la contraseña en .env. GSS Encryption Mode=Disable:
+  # sin Kerberos, Npgsql no intenta cargar libgssapi_krb5, que la imagen no trae.
+  ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:?Falta POSTGRES_DB en .env};Username=${POSTGRES_USER:?Falta POSTGRES_USER en .env};Password=${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env};GSS Encryption Mode=Disable
 
 services:
   postgres:
