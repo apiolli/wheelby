@@ -494,25 +494,47 @@ Atajos útiles:
 
 ## Pruebas
 
-Las pruebas del repositorio se ejecutan con **un solo comando**, desde un clon limpio:
+Las pruebas no levantan la aplicación ni necesitan PostgreSQL: la base se sustituye por EF InMemory y los servicios externos por dobles. Se ejecutan con **un solo comando**, desde la raíz del repositorio, **sin instalar .NET**:
 
 ```bash
-cd src/backend
-dotnet test
+docker build --target test .
 ```
 
-`dotnet test` compila la solución completa (`Wheelby.slnx`) y ejecuta **165 pruebas** en dos proyectos (una prueba con varios casos cuenta una vez por caso):
+Compila la solución dentro de la imagen del SDK y ejecuta `dotnet test`. Para ver el resultado de cada proyecto, agrega `--progress=plain`; para repetirlas sin caché, `--no-cache`. Si tienes el SDK de .NET 10, el comando equivalente es `cd src/backend` y `dotnet test`.
+
+Son **234 pruebas** en tres proyectos (una prueba con varios casos cuenta una vez por caso):
 
 | Proyecto | Carpeta | Pruebas | Resultado esperado |
 |---|---|---|---|
+| `Documents.Test` | `src/backend/src/Core/Documents/Documents.Test/` | 44 | `Failed: 0, Passed: 44` |
 | `Permissions.Test` | `src/backend/src/Core/Permissions/Permissions.Test/` | 71 | `Failed: 0, Passed: 71` |
-| `Wheelby.Test` | `src/backend/src/Domain/Wheelby/Wheelby.Test/` | 94 | `Failed: 0, Passed: 94` |
+| `Wheelby.Test` | `src/backend/src/Domain/Wheelby/Wheelby.Test/` | 119 | `Failed: 0, Passed: 119` |
 
-**No necesitan Docker ni PostgreSQL** y no levantan la API: la base se sustituye por EF InMemory. La primera vez, `dotnet test` restaura los paquetes automáticamente; no hace falta instalar `dotnet-ef`.
+Todas usan fechas y reloj fijos, siguen Arrange/Act/Assert, verifican un solo comportamiento, son independientes entre sí (cada una crea sus dobles y, con EF InMemory, una base con nombre único) y llevan el ID del requisito al inicio del nombre (`RF_DOC_0X_...`, `RF_GP_0X_...`, `RF_NEG_0X_...`, `RD_XX_...`).
 
-Todas usan fechas y reloj fijos, siguen Arrange/Act/Assert, verifican un solo comportamiento, son independientes entre sí (cada una crea sus dobles y, con EF InMemory, una base con nombre único) y llevan el ID del requisito al inicio del nombre (`RF_GP_0X_...`, `RF_NEG_0X_...`).
+### Documents.Test (Práctica 4)
 
-### Wheelby.Test (Práctica 3)
+Abreviaturas: **D** = `Domain/`, **A** = `Application/`, **I** = `Infrastructure/`.
+
+| Requisito | Lo que se verifica |
+|---|---|
+| Dominio (D) | `Document.Create` rechaza tamaño 0, nombre vacío, nombre de más de 255 caracteres y fecha que no está en UTC; usa `application/octet-stream` si no hay tipo; quita la ruta y los caracteres de control del nombre; `StoredFileName` sale del `Id` y no contiene el nombre original; `MarkDeleted` dos veces da 404 |
+| RF-DOC-01 (A) | Subir guarda los seis datos (dueño = usuario actual, fecha = reloj fijo) y el archivo queda en el almacenamiento |
+| RD-07 (A) | Archivo vacío y archivo mayor que el límite dan `ValidationException`; si falla `SaveChanges`, el archivo se borra |
+| RF-DOC-02 (A, con `DocumentReadStore` real) | Un Estándar no ve eliminados ni ajenos; el Administrador ve los de todos sin los eliminados, del más reciente al más antiguo |
+| RF-DOC-03 (A) | El dueño descarga; el Administrador descarga uno ajeno; otro Estándar recibe 403; eliminado, id inexistente o archivo ausente en disco dan 404; ajeno **y** eliminado da 404, no 403 |
+| RF-DOC-04 (A) | Eliminar deja `DeletedAt` y `DeletedBy` y no llama a `IFileStorage.DeleteAsync`; otro Estándar recibe 403 y el documento queda intacto; eliminar uno ya eliminado da 404 |
+| RD-06 (I) | Los cuatro endpoints de `/documents` existen y exigen sesión |
+| RF-DOC-05 (I) | `LocalFileStorage` sobre una carpeta temporal: guardar y leer devuelve los mismos bytes, no deja temporales, leer uno inexistente da `null` y un nombre que no es GUID se rechaza |
+
+### Wheelby.Test
+
+Práctica 4, API externa (RD-07, RD-08, RD-10):
+
+- **Búsqueda con moneda (A, `SearchAvailableVehiclesCurrencyTests.cs`):** sin `currency` o con `DOP` no llama al proveedor; con `USD` convierte con la tasa y redondea a 2 decimales, y llama una sola vez aunque haya varios vehículos; un 503 del proveedor se propaga; el validador rechaza `US`, `USDX`, `12$` y `usd` y acepta `USD` y `null`.
+- **`ExchangeRateApiProvider` (I, `ExchangeRateApiProviderTests.cs`)**, con un `HttpMessageHandler` falso y sin red: sin clave responde 503 sin hacer peticiones; la clave va en la cabecera y no en la URL; `success` devuelve la tasa; `invalid-key`, `inactive-account` y `quota-reached` dan 503; timeout, error de red y JSON inválido dan 503; `unsupported-code` da 400; el segundo pedido del mismo par usa la caché; la clave no aparece en ningún mensaje de excepción.
+
+Práctica 3:
 
 Abreviaturas: **D** = `Domain/`, **A** = `Application/`, **I** = `Infrastructure/`.
 
