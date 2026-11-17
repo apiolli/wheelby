@@ -15,7 +15,7 @@ gsap.registerPlugin(DrawSVGPlugin, Flip, MotionPathPlugin, SplitText);
 // Páginas públicas de acceso (/login, /registro, /recuperar). Con sesión llevan directo a la
 // ruta de ?redirect= (o a /); mientras se valida un token guardado, pantalla neutra.
 export default function AuthLayout() {
-  const { status } = useSession();
+  const status = useSession((s) => s.status);
   const { search } = useLocation();
 
   if (status === "checking") return <Splash />;
