@@ -80,25 +80,45 @@ export interface Vehicle {
   exchangeRate: number | null;
 }
 
-// La API serializa el estado de la reserva como número (enum de .NET).
+// La API serializa el estado de la reserva como texto (JsonStringEnumConverter).
 export const ReservationStatus = {
-  Pending: 0,
-  Confirmed: 1,
-  InProgress: 2,
-  Completed: 3,
-  Cancelled: 4,
+  Pending: "Pending",
+  Confirmed: "Confirmed",
+  InProgress: "InProgress",
+  Completed: "Completed",
+  Cancelled: "Cancelled",
 } as const;
 export type ReservationStatus =
   (typeof ReservationStatus)[keyof typeof ReservationStatus];
 
+// GET /reservations/mine, /reservations/{id} y /admin/reservations.
+// pricePerDay y totalAmount están congelados al reservar, en DOP.
 export interface Reservation {
   id: string;
   vehicleId: string;
   renterId: string;
+  ownerId: string;
+  brand: string;
+  model: string;
+  year: number;
+  plate: string;
   startDate: string;
   endDate: string;
   status: ReservationStatus;
+  pricePerDay: number;
+  days: number;
+  totalAmount: number;
+  cancellationReason: string | null;
   createdAt: string;
+  currency: string;
+}
+
+// GET /vehicles/{id}/availability: rangos bloqueados (Confirmed e InProgress).
+export interface VehicleAvailability {
+  vehicleId: string;
+  from: string;
+  to: string;
+  blocked: { startDate: string; endDate: string }[];
 }
 
 // GET /documents

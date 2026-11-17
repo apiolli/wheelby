@@ -3,6 +3,7 @@ using MediatR;
 using Permissions.Contracts;
 using Shared.Application.Abstractions;
 using SharedKernel.Exceptions;
+using Wheelby.Domain.Errors;
 using Wheelby.Application.Abstractions;
 using Wheelby.Domain.Vehicles;
 using Wheelby.Contracts;
@@ -27,10 +28,10 @@ internal sealed class PublishVehicleCommandHandler(
             cancellationToken);
 
         if (!hasPermission)
-            throw new ForbiddenException("No tienes el permiso wheelby.publish-vehicle para publicar vehículos.");
+            throw new ForbiddenException("No tienes el permiso wheelby.publish-vehicle para publicar vehículos.", WheelbyErrorCodes.VehiclePublishNotAllowed);
 
         if (await vehicles.PlateExistsAsync(command.Plate, cancellationToken))
-            throw new ConflictException("Ya existe un vehículo con esa placa.");
+            throw new ConflictException("Ya existe un vehículo con esa placa.", WheelbyErrorCodes.VehiclePlateTaken);
 
         var vehicle = Vehicle.Create(
             currentUser.Id,

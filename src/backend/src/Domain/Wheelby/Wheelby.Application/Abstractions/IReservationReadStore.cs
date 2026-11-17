@@ -7,6 +7,10 @@ namespace Wheelby.Application.Abstractions;
 // Puerto de lectura de reservas.
 public interface IReservationReadStore
 {
+    Task<ReservationSummaryDTO?> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
     Task<PagedResult<ReservationSummaryDTO>> ListByRenterAsync(
         Guid renterId,
         int page,

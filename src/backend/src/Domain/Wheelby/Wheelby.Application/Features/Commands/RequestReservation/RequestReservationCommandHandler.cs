@@ -2,6 +2,7 @@ using AccessControl.Contracts;
 using MediatR;
 using Shared.Application.Abstractions;
 using SharedKernel.Exceptions;
+using Wheelby.Domain.Errors;
 using Wheelby.Application.Abstractions;
 using Wheelby.Domain.Reservations;
 using Wheelby.Domain.Vehicles;
@@ -20,11 +21,11 @@ internal sealed class RequestReservationCommandHandler(
         CancellationToken cancellationToken)
     {
         var vehicle = await vehicles.GetByIdAsync(command.VehicleId, cancellationToken)
-            ?? throw new NotFoundException("El vehículo no existe.");
+            ?? throw new NotFoundException("El vehículo no existe.", WheelbyErrorCodes.VehicleNotFound);
 
         // No se puede reservar el propio vehículo.
         if (vehicle.OwnerId == currentUser.Id)
-            throw new ForbiddenException("No puedes reservar tu propio vehículo.");
+            throw new ForbiddenException("No puedes reservar tu propio vehículo.", WheelbyErrorCodes.ReservationOwnVehicle);
 
         // Solo Confirmed e InProgress bloquean el calendario.
         var hasOverlap = await reservations.HasBlockingOverlapAsync(
@@ -34,13 +35,14 @@ internal sealed class RequestReservationCommandHandler(
             cancellationToken: cancellationToken);
 
         if (hasOverlap)
-            throw new ConflictException("El vehículo ya tiene una reserva bloqueante que solapa esas fechas.");
+            throw new ConflictException("El vehículo ya tiene una reserva bloqueante que solapa esas fechas.", WheelbyErrorCodes.VehicleOverlap);
 
         var reservation = Reservation.Create(
             command.VehicleId,
             currentUser.Id,
             command.Start,
             command.End,
+            vehicle.PricePerDay,
             clock.UtcNow);
 
         await reservations.AddAsync(reservation, cancellationToken);

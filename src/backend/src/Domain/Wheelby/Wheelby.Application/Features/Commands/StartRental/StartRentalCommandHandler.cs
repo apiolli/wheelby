@@ -2,6 +2,7 @@ using AccessControl.Contracts;
 using MediatR;
 using Shared.Application.Abstractions;
 using SharedKernel.Exceptions;
+using Wheelby.Domain.Errors;
 using Wheelby.Application.Abstractions;
 using Wheelby.Domain.Reservations;
 using Wheelby.Domain.Vehicles;
@@ -20,14 +21,14 @@ internal sealed class StartRentalCommandHandler(
         CancellationToken cancellationToken)
     {
         var reservation = await reservations.GetByIdAsync(command.Id, cancellationToken)
-            ?? throw new NotFoundException("La reserva no existe.");
+            ?? throw new NotFoundException("La reserva no existe.", WheelbyErrorCodes.ReservationNotFound);
 
         var vehicle = await vehicles.GetByIdAsync(reservation.VehicleId, cancellationToken)
-            ?? throw new NotFoundException("El vehículo de la reserva no existe.");
+            ?? throw new NotFoundException("El vehículo de la reserva no existe.", WheelbyErrorCodes.VehicleNotFound);
 
         // Solo el dueño del vehículo (actor Host) puede iniciar el alquiler.
         if (vehicle.OwnerId != currentUser.Id)
-            throw new ForbiddenException("Solo el dueño del vehículo puede iniciar el alquiler.");
+            throw new ForbiddenException("Solo el dueño del vehículo puede iniciar el alquiler.", WheelbyErrorCodes.ReservationNotHost);
 
         reservation.TransitionTo(ReservationStatus.InProgress, ReservationActor.Host, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);

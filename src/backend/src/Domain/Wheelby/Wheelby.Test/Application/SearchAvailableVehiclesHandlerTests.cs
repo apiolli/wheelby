@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Shared.Application.Abstractions;
 using Wheelby.Application.Features.SearchAvailableVehicles;
 using Wheelby.Application.Abstractions;
@@ -17,7 +18,7 @@ public class SearchAvailableVehiclesHandlerTests
         readStore = new InMemoryVehicleReadStore();
         currentUser = new MutableCurrentUser(Guid.NewGuid(), "Standard");
         var clock = new FixedClock(new DateTime(2026, 11, 1, 10, 0, 0, DateTimeKind.Utc));
-        return new SearchAvailableVehiclesQueryHandler(readStore, currentUser, new FakeExchangeRateProvider());
+        return new SearchAvailableVehiclesQueryHandler(readStore, currentUser, new FakeExchangeRateProvider(), NullLogger<SearchAvailableVehiclesQueryHandler>.Instance);
     }
 
     [Fact]

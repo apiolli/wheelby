@@ -16,6 +16,7 @@ public class ReservationStateMachineTests
             Guid.NewGuid(),
             T1,
             T2,
+            100m,
             utcNow);
 
     // ---------------------------------------------------------------
@@ -483,14 +484,14 @@ public class ReservationStateMachineTests
     [Fact]
     public void RD_07_Crear_con_vehicleId_vacio_se_rechaza()
     {
-        var act = () => Reservation.Create(Guid.Empty, Guid.NewGuid(), T1, T2, T0);
+        var act = () => Reservation.Create(Guid.Empty, Guid.NewGuid(), T1, T2, 100m, T0);
         Assert.Throws<InvalidReservationDataException>(act);
     }
 
     [Fact]
     public void RD_07_Crear_con_renterId_vacio_se_rechaza()
     {
-        var act = () => Reservation.Create(Guid.NewGuid(), Guid.Empty, T1, T2, T0);
+        var act = () => Reservation.Create(Guid.NewGuid(), Guid.Empty, T1, T2, 100m, T0);
         Assert.Throws<InvalidReservationDataException>(act);
     }
 
@@ -500,33 +501,60 @@ public class ReservationStateMachineTests
         var act = () => Reservation.Create(
             Guid.NewGuid(), Guid.NewGuid(),
             new DateTime(2026, 11, 2, 10, 0, 0),
-            new DateTime(2026, 11, 3, 10, 0, 0), T0);
+            new DateTime(2026, 11, 3, 10, 0, 0), 100m, T0);
         Assert.Throws<InvalidReservationDataException>(act);
     }
 
     [Fact]
     public void RD_07_Crear_con_inicio_igual_o_posterior_a_fin_se_rechaza()
     {
-        var act = () => Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T2, T2, T0);
+        var act = () => Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T2, T2, 100m, T0);
         Assert.Throws<InvalidReservationDataException>(act);
 
-        var act2 = () => Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T3, T2, T0);
+        var act2 = () => Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T3, T2, 100m, T0);
         Assert.Throws<InvalidReservationDataException>(act2);
     }
 
     [Fact]
     public void RD_07_Crear_con_inicio_no_futuro_se_rechaza()
     {
-        var act = () => Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T0, T2, T0);
+        var act = () => Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T0, T2, 100m, T0);
         Assert.Throws<InvalidReservationDataException>(act);
     }
 
     [Fact]
     public void RD_07_Crear_con_datos_validos_devuelve_Pending()
     {
-        var reservation = Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T1, T2, T0);
+        var reservation = Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T1, T2, 100m, T0);
 
         Assert.Equal(ReservationStatus.Pending, reservation.Status);
         Assert.NotEqual(Guid.Empty, reservation.Id);
+    }
+
+    [Fact]
+    public void Crear_congela_precio_y_total()
+    {
+        // T1 → T3 son 2 días exactos.
+        var reservation = Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T1, T3, 1500.50m, T0);
+
+        Assert.Equal(1500.50m, reservation.PricePerDayAtBooking);
+        Assert.Equal(2, reservation.Days);
+        Assert.Equal(3001.00m, reservation.TotalAmount);
+    }
+
+    [Fact]
+    public void Una_fraccion_de_dia_cuenta_como_dia_completo()
+    {
+        var reservation = Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T1, T2.AddHours(1), 100m, T0);
+
+        Assert.Equal(2, reservation.Days);
+        Assert.Equal(200m, reservation.TotalAmount);
+    }
+
+    [Fact]
+    public void Crear_con_precio_no_positivo_se_rechaza()
+    {
+        var act = () => Reservation.Create(Guid.NewGuid(), Guid.NewGuid(), T1, T2, 0m, T0);
+        Assert.Throws<InvalidReservationDataException>(act);
     }
 }

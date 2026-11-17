@@ -22,6 +22,13 @@ internal sealed class GlobalExceptionHandler(
         };
 
         problem.Extensions["traceId"] = Activity.Current?.Id ?? httpContext.TraceIdentifier;
+        problem.Extensions["code"] = exception switch
+        {
+            ValidationException => ErrorCodes.Validation,
+            AppException app => app.Code ?? ErrorCodes.ForStatus(app.StatusCode),
+            BadHttpRequestException => ErrorCodes.MalformedRequest,
+            _ => ErrorCodes.Internal
+        };
 
         httpContext.Response.StatusCode = problem.Status!.Value;
         await httpContext.Response.WriteAsJsonAsync(

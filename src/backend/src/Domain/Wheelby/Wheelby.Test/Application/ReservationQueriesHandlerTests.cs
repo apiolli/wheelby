@@ -14,7 +14,8 @@ public class ReservationQueriesHandlerTests
     private static ReservationSummaryDTO NuevaReserva(
         Guid id, Guid vehicleId, Guid renterId, DateTime start, DateTime end,
         ReservationStatus status, DateTime createdAt)
-        => new(id, vehicleId, renterId, start, end, status, createdAt);
+        => new(id, vehicleId, renterId, Guid.NewGuid(), "Toyota", "Corolla", 2020, "A123456",
+            start, end, status, 100m, 2, 200m, null, createdAt);
 
     [Fact]
     public async Task RF_NEG_02_F6_ListMyReservations_devuelve_solo_las_del_usuario()

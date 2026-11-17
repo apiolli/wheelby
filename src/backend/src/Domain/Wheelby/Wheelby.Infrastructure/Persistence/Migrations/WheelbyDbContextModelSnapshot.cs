@@ -35,8 +35,14 @@ namespace Wheelby.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Days")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("PricePerDayAtBooking")
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<Guid>("RenterId")
                         .HasColumnType("uuid");
@@ -49,10 +55,17 @@ namespace Wheelby.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("numeric(14,2)");
+
                     b.Property<Guid>("VehicleId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RenterId");
+
+                    b.HasIndex("VehicleId");
 
                     b.ToTable("Reservations", "wheelby");
                 });

@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.Routing;
 using Wheelby.Application.Features.CancelReservation;
 using Wheelby.Application.Features.CompleteRental;
 using Wheelby.Application.Features.ConfirmReservation;
+using Wheelby.Application.Features.GetReservation;
+using Wheelby.Application.Features.GetVehicle;
+using Wheelby.Application.Features.GetVehicleAvailability;
+using Wheelby.Application.Features.ListMyVehicles;
 using Wheelby.Application.Features.ListAllReservations;
 using Wheelby.Application.Features.ListMyReservations;
 using Wheelby.Application.Features.RejectReservation;
@@ -62,6 +66,33 @@ public static class WheelbyEndpoints
             return Results.Ok(await sender.Send(query, ct));
         });
 
+        vehicles.MapGet("/mine", async (
+            int? page,
+            int? pageSize,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var query = new ListMyVehiclesQuery(page ?? 1, pageSize ?? 20);
+            return Results.Ok(await sender.Send(query, ct));
+        });
+
+        vehicles.MapGet("/{id:guid}", async (
+            Guid id,
+            ISender sender,
+            CancellationToken ct) =>
+            Results.Ok(await sender.Send(new GetVehicleQuery(id), ct)));
+
+        vehicles.MapGet("/{id:guid}/availability", async (
+            Guid id,
+            DateTimeOffset from,
+            DateTimeOffset to,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var query = new GetVehicleAvailabilityQuery(id, from.UtcDateTime, to.UtcDateTime);
+            return Results.Ok(await sender.Send(query, ct));
+        });
+
         var reservations = app.MapGroup("/reservations")
             .WithTags("Reservations")
             .RequireAuthorization()
@@ -90,6 +121,13 @@ public static class WheelbyEndpoints
             var query = new ListMyReservationsQuery(@as, page ?? 1, pageSize ?? 20);
             return Results.Ok(await sender.Send(query, ct));
         });
+
+        // Inquilino o dueño del vehículo; para cualquier otro, 404.
+        reservations.MapGet("/{id:guid}", async (
+            Guid id,
+            ISender sender,
+            CancellationToken ct) =>
+            Results.Ok(await sender.Send(new GetReservationQuery(id), ct)));
 
         reservations.MapPost("/{id:guid}/confirm", async (
             Guid id,
@@ -157,6 +195,13 @@ public static class WheelbyEndpoints
             var query = new ListAllReservationsQuery(status, page ?? 1, pageSize ?? 20);
             return Results.Ok(await sender.Send(query, ct));
         });
+
+        // El Administrador no entra al grupo /reservations (RequireStandard): ve el detalle aquí.
+        admin.MapGet("/{id:guid}", async (
+            Guid id,
+            ISender sender,
+            CancellationToken ct) =>
+            Results.Ok(await sender.Send(new GetReservationQuery(id), ct)));
     }
 
     private sealed record RequestReservationRequest(Guid VehicleId, DateTimeOffset Start, DateTimeOffset End);

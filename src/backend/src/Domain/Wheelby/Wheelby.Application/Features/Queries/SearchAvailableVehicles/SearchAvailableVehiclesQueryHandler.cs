@@ -1,5 +1,7 @@
 using AccessControl.Contracts;
 using MediatR;
+using Microsoft.Extensions.Logging;
+using SharedKernel.Exceptions;
 using Wheelby.Application.Abstractions;
 using Wheelby.Application.Common;
 using Wheelby.Application.DTOs;
@@ -9,7 +11,8 @@ namespace Wheelby.Application.Features.SearchAvailableVehicles;
 internal sealed class SearchAvailableVehiclesQueryHandler(
     IVehicleReadStore vehicleReadStore,
     ICurrentUser currentUser,
-    IExchangeRateProvider exchangeRates)
+    IExchangeRateProvider exchangeRates,
+    ILogger<SearchAvailableVehiclesQueryHandler> logger)
     : IRequestHandler<SearchAvailableVehiclesQuery, PagedResult<VehicleSummaryDTO>>
 {
     public const string BaseCurrency = "DOP";
@@ -30,9 +33,20 @@ internal sealed class SearchAvailableVehiclesQueryHandler(
         if (query.Currency is null || query.Currency == BaseCurrency)
             return page;
 
-        // Una sola consulta de la tasa para toda la página. Si el proveedor falla,
-        // la ServiceUnavailableException sube y la respuesta es 503.
-        var rate = await exchangeRates.GetRateAsync(BaseCurrency, query.Currency, cancellationToken);
+        // Una sola consulta de la tasa para toda la página (el proveedor la cachea).
+        // Si el servicio externo no está disponible, la búsqueda no falla: responde
+        // en DOP con los campos de conversión en null. Una moneda no soportada
+        // sigue siendo un 400.
+        decimal rate;
+        try
+        {
+            rate = await exchangeRates.GetRateAsync(BaseCurrency, query.Currency, cancellationToken);
+        }
+        catch (ServiceUnavailableException ex)
+        {
+            logger.LogWarning("Exchange rate unavailable, answering in {Currency}: {Reason}", BaseCurrency, ex.Message);
+            return page;
+        }
 
         var converted = page.Items
             .Select(v => v with

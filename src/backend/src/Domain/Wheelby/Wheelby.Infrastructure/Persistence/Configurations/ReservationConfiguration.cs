@@ -31,6 +31,20 @@ internal sealed class ReservationConfiguration : IEntityTypeConfiguration<Reserv
 
         builder.Property(r => r.CreatedAt).IsRequired();
 
+        // Precio congelado al reservar (misma precisión que Vehicle.PricePerDay).
+        builder.Property(r => r.PricePerDayAtBooking)
+            .IsRequired()
+            .HasColumnType("numeric(12,2)");
+
+        builder.Property(r => r.Days).IsRequired();
+
+        builder.Property(r => r.TotalAmount)
+            .IsRequired()
+            .HasColumnType("numeric(14,2)");
+
+        builder.HasIndex(r => r.VehicleId);
+        builder.HasIndex(r => r.RenterId);
+
         builder.Ignore(r => r.DomainEvents);
     }
 }
