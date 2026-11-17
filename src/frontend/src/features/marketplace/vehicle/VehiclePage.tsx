@@ -14,7 +14,6 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { errorCode, ERROR_CODES, errorMessage } from "@/api/errors";
 import EmptyState from "@/components/custom/EmptyState";
 import { CarIllustration } from "@/components/custom/Illustrations";
-import VehicleArt from "@/components/custom/VehicleArt";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -33,6 +32,7 @@ import { readSearch, searchQueryString } from "../search/params";
 import { useBlockedDays } from "./availability";
 import { AdminNotice, OwnVehicleNotice } from "./components/PanelNotices";
 import ReservePanel, { type Range } from "./components/ReservePanel";
+import VehicleGallery from "./components/VehicleGallery";
 import VehicleReviews from "./components/VehicleReviews";
 import { useVehicle } from "./useVehicle";
 
@@ -174,9 +174,7 @@ export default function VehiclePage() {
 
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-14">
           <m.div {...ENTER} className="grid min-w-0 content-start gap-8">
-            <div className="aspect-16/10 overflow-hidden rounded-[20px] bg-secondary">
-              <VehicleArt brand={vehicle.brand} />
-            </div>
+            <VehicleGallery vehicle={vehicle} />
 
             <header>
               <h1 className="text-[26px] leading-tight font-bold tracking-tight md:text-[30px]">

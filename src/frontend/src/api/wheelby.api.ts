@@ -9,6 +9,7 @@ import type {
   ReservationDocumentKind,
   Vehicle,
   VehicleAvailability,
+  VehiclePhoto,
   VehicleType,
 } from "@/types/types";
 import { wheelbyApi } from "./wheelby-api";
@@ -52,6 +53,21 @@ export const listVehicleReviews = (
     .get<PagedResult<Review>>(`/vehicles/${id}/reviews`, {
       params: { page, pageSize },
     })
+    .then((r) => r.data);
+
+// P4: fotos del vehículo. La imagen exige sesión, así que se pide como blob.
+export const listVehiclePhotos = (id: string) =>
+  wheelbyApi.get<VehiclePhoto[]>(`/vehicles/${id}/photos`).then((r) => r.data);
+
+export const addVehiclePhoto = (id: string, documentId: string) =>
+  wheelbyApi.post(`/vehicles/${id}/photos`, { documentId });
+
+export const removeVehiclePhoto = (id: string, documentId: string) =>
+  wheelbyApi.delete(`/vehicles/${id}/photos/${documentId}`);
+
+export const fetchVehiclePhoto = (id: string, documentId: string) =>
+  wheelbyApi
+    .get<Blob>(`/vehicles/${id}/photos/${documentId}`, { responseType: "blob" })
     .then((r) => r.data);
 
 export interface PublishVehicleInput {

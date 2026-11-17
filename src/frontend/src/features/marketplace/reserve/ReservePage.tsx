@@ -18,7 +18,7 @@ import { ERROR_CODES, toApiError } from "@/api/errors";
 import { requestReservation } from "@/api/wheelby.api";
 import EmptyState from "@/components/custom/EmptyState";
 import { CarIllustration } from "@/components/custom/Illustrations";
-import VehicleArt from "@/components/custom/VehicleArt";
+import VehicleImage from "@/features/marketplace/vehicle/VehicleImage";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { features } from "@/lib/features";
@@ -343,7 +343,11 @@ export default function ReservePage() {
             <div className="grid gap-5 rounded-[20px] border border-border p-6 shadow-float">
               <div className="flex items-center gap-4">
                 <div className="aspect-4/3 w-28 shrink-0 overflow-hidden rounded-xl">
-                  <VehicleArt brand={vehicle.brand} />
+                  <VehicleImage
+                    vehicleId={vehicle.id}
+                    brand={vehicle.brand}
+                    photoId={vehicle.coverPhotoId}
+                  />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-[16px] font-bold">

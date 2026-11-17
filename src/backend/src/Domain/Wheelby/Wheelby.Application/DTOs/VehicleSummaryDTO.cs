@@ -20,4 +20,6 @@ public sealed record VehicleSummaryDTO(
     VehicleType Type = VehicleType.Car,
     string? City = null,
     string? Description = null,
-    bool IsActive = true);
+    bool IsActive = true,
+    // Primera foto del vehículo (P4), o null si no tiene: el cliente muestra la ilustración.
+    Guid? CoverPhotoId = null);

@@ -2,12 +2,12 @@ import { m } from "motion/react";
 import { Info } from "lucide-react";
 import { Link } from "react-router";
 
-import VehicleArt from "@/components/custom/VehicleArt";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import VehicleImage from "@/features/marketplace/vehicle/VehicleImage";
 import { formatPrice } from "@/lib/format";
 import { STAGGER_ITEM } from "@/lib/motion";
 import type { Vehicle } from "@/types/types";
@@ -19,20 +19,30 @@ interface VehicleCardProps {
   to: string;
   // Días elegidos: si hay, se muestra el total estimado.
   days?: number;
+  // Foto local para la vista previa del formulario de publicar.
+  imageUrl?: string | null;
 }
 
 // Tarjeta del catálogo: ilustración 4:3 y, debajo, marca y modelo, año y precio. La placa no se
 // muestra a otros usuarios. Toda la tarjeta es un enlace (el del título se estira encima), salvo
 // el ícono de la tasa, que abre su tooltip.
-export default function VehicleCard({ vehicle, to, days }: VehicleCardProps) {
+export default function VehicleCard({
+  vehicle,
+  to,
+  days,
+  imageUrl,
+}: VehicleCardProps) {
   const price = vehiclePrice(vehicle);
   const name = vehicleName(vehicle);
 
   return (
     <m.li {...STAGGER_ITEM} className="group/card relative min-w-0">
       <div className="relative aspect-4/3 overflow-hidden rounded-[18px] bg-secondary">
-        <VehicleArt
+        <VehicleImage
+          vehicleId={vehicle.id}
           brand={vehicle.brand}
+          photoId={vehicle.coverPhotoId}
+          src={imageUrl}
           className="transition-transform duration-500 ease-out group-hover/card:scale-[1.03]"
         />
         <span className="absolute top-2.5 left-2.5 rounded-full bg-background/95 px-2.5 py-1 text-[11.5px] font-bold shadow-xs">

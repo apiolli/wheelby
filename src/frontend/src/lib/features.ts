@@ -20,7 +20,6 @@ export const features = {
   vehicleEdit: true,
   // P4: tipo, ciudad y descripción del vehículo en el formulario.
   vehicleDetails: true,
-  // P4: fotos de vehículos. El backend las admite, pero el diseño actual las deja fuera
-  // (cada vehículo usa su ilustración de marca); la sección solo se reserva.
-  vehiclePhotos: false,
+  // P4: fotos de vehículos (hasta 10). Sin fotos, cada vehículo usa su ilustración de marca.
+  vehiclePhotos: true,
 } as const;

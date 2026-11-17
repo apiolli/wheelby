@@ -1,13 +1,7 @@
 import { useDeferredValue, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, m } from "motion/react";
-import {
-  ChevronLeft,
-  CircleAlert,
-  ImagePlus,
-  LoaderCircle,
-  Lock,
-} from "lucide-react";
+import { ChevronLeft, CircleAlert, LoaderCircle, Lock } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { cn } from "cn";
 
@@ -25,6 +19,8 @@ import { queryKeys } from "@/lib/query-keys";
 import { fieldErrors } from "@/lib/schemas";
 import { showToast, useSession } from "@/stores/session.store";
 import type { Vehicle } from "@/types/types";
+import PhotosField from "./PhotosField";
+import { usePhotoUploads } from "./usePhotoUploads";
 import {
   CITY_MAX,
   DESCRIPTION_MAX,
@@ -100,31 +96,54 @@ function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
   const shown = (key: keyof VehicleFormValues) =>
     submitted || touched[key] ? errors[key] : undefined;
 
+  const photos = usePhotoUploads(vehicle?.id);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+
+  // Publica o guarda los datos; devuelve el id del vehículo.
+  async function saveVehicle(): Promise<string> {
+    const data = vehicleFormSchema.parse(values);
+    const input = {
+      ...data,
+      city: data.city || null,
+      description: data.description || null,
+    };
+    if (!features.vehicleDetails) {
+      const { brand, model, year, plate, pricePerDay } = data;
+      if (vehicle) {
+        await updateVehicle(vehicle.id, {
+          brand,
+          model,
+          year,
+          plate: vehicle.plate,
+          pricePerDay,
+          type: vehicle.type,
+        });
+        return vehicle.id;
+      }
+      return (await publishVehicle({ brand, model, year, plate, pricePerDay }))
+        .id;
+    }
+    // La placa no se edita: se reenvía la actual.
+    if (vehicle) {
+      await updateVehicle(vehicle.id, { ...input, plate: vehicle.plate });
+      return vehicle.id;
+    }
+    return (await publishVehicle(input)).id;
+  }
+
   const save = useMutation({
     mutationFn: async () => {
-      const data = vehicleFormSchema.parse(values);
-      const input = {
-        ...data,
-        city: data.city || null,
-        description: data.description || null,
-      };
-      if (!features.vehicleDetails) {
-        const { brand, model, year, plate, pricePerDay } = data;
-        if (vehicle)
-          return updateVehicle(vehicle.id, {
-            brand,
-            model,
-            year,
-            plate: vehicle.plate,
-            pricePerDay,
-            type: vehicle.type,
-          });
-        return publishVehicle({ brand, model, year, plate, pricePerDay });
+      const id = await saveVehicle();
+      // Al publicar, las fotos en cola se suben cuando ya existe el vehículo.
+      if (!vehicle && features.vehiclePhotos && photos.hasQueued) {
+        setUploadingPhotos(true);
+        try {
+          return { id, failedPhotos: await photos.uploadQueued(id) };
+        } finally {
+          setUploadingPhotos(false);
+        }
       }
-      // La placa no se edita: se reenvía la actual.
-      if (vehicle)
-        return updateVehicle(vehicle.id, { ...input, plate: vehicle.plate });
-      return publishVehicle(input);
+      return { id, failedPhotos: 0 };
     },
     // El error del servidor debe verse: foco a la placa si está repetida, si no al banner.
     onError: (err) => {
@@ -139,9 +158,17 @@ function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
             ?.scrollIntoView({ behavior: "smooth", block: "center" }),
         );
     },
-    onSuccess: () => {
+    onSuccess: ({ id, failedPhotos }) => {
       queryClient.invalidateQueries({ queryKey: ["vehicles"] });
       const name = `${values.brand.trim()} ${values.model.trim()}`;
+      // Se publicó, pero alguna foto falló: a la edición, donde se reintenta.
+      if (failedPhotos > 0) {
+        showToast(
+          `Publicamos tu ${name}, pero ${failedPhotos === 1 ? "una foto no se subió" : `${failedPhotos} fotos no se subieron`}. Vuelve a agregarlas.`,
+        );
+        navigate(`/anfitrion/vehiculos/${id}`, { replace: true });
+        return;
+      }
       if (!features.myVehicles) {
         showToast(`Publicamos tu ${name}`);
         navigate("/buscar");
@@ -215,8 +242,10 @@ function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
 
   // Vista previa: la tarjeta del catálogo con los valores escritos, con un fundido corto.
   const preview = useDeferredValue(values);
+  // Portada de la vista previa: la primera foto (local o ya guardada).
+  const cover = features.vehiclePhotos ? photos.items[0] : undefined;
   const previewVehicle: Vehicle = {
-    id: "preview",
+    id: vehicle?.id ?? "preview",
     ownerId: user.id,
     brand: preview.brand.trim() || "Marca",
     model: preview.model.trim() || "Modelo",
@@ -232,6 +261,7 @@ function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
     city: preview.city || null,
     description: preview.description || null,
     isActive: true,
+    coverPhotoId: cover?.kind === "saved" ? cover.documentId : null,
   };
 
   return (
@@ -426,10 +456,17 @@ function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
             )}
             {features.vehiclePhotos && (
               <Section title="Fotos" optional>
-                <p className="flex items-center gap-2 text-[14px] text-muted-foreground">
-                  <ImagePlus className="size-5" strokeWidth={1.5} />{" "}
-                  Próximamente.
-                </p>
+                <PhotosField
+                  vehicleId={vehicle?.id}
+                  brand={values.brand || "Vehículo"}
+                  items={photos.items}
+                  isLoading={photos.isLoading}
+                  removing={photos.removing}
+                  onAdd={photos.add}
+                  onRemove={photos.remove}
+                  onRetry={photos.retry}
+                  pendingPublish={!vehicle}
+                />
               </Section>
             )}
 
@@ -441,7 +478,11 @@ function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
                 disabled={save.isPending}
                 aria-busy={save.isPending}
               >
-                {save.isPending ? (
+                {uploadingPhotos ? (
+                  <>
+                    <LoaderCircle className="animate-spin" /> Subiendo fotos…
+                  </>
+                ) : save.isPending ? (
                   <LoaderCircle className="animate-spin" />
                 ) : editing ? (
                   "Guardar cambios"
@@ -469,7 +510,7 @@ function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
               Así se verá
             </p>
             <m.div
-              key={`${preview.brand}|${preview.model}|${preview.year}|${preview.pricePerDay}`}
+              key={`${preview.brand}|${preview.model}|${preview.year}|${preview.pricePerDay}|${cover?.key ?? ""}`}
               initial={{ opacity: 0.4 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2 }}
@@ -478,7 +519,11 @@ function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
               className="max-w-80"
             >
               <ul className="list-none">
-                <VehicleCard vehicle={previewVehicle} to="#" />
+                <VehicleCard
+                  vehicle={previewVehicle}
+                  to="#"
+                  imageUrl={cover?.kind === "local" ? cover.url : null}
+                />
               </ul>
             </m.div>
             <p className="mt-4 text-[12.5px] text-muted-foreground">

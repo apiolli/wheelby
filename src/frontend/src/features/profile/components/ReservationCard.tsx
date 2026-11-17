@@ -4,7 +4,7 @@ import { CalendarDays } from "lucide-react";
 import { Link } from "react-router";
 
 import { ReservationStatusBadge } from "@/components/custom/StatusBadges";
-import VehicleArt from "@/components/custom/VehicleArt";
+import VehicleImage from "@/features/marketplace/vehicle/VehicleImage";
 import { daysLabel, vehicleName } from "@/features/marketplace/catalog/vehicle";
 import { features } from "@/lib/features";
 import { formatDateRange, formatPrice } from "@/lib/format";
@@ -38,7 +38,12 @@ export default function ReservationCard({
     >
       <div className="flex gap-4 sm:items-center">
         <div className="aspect-4/3 w-24 shrink-0 self-start overflow-hidden rounded-xl sm:w-32 sm:self-center">
-          <VehicleArt brand={r.brand} muted={muted} />
+          <VehicleImage
+            vehicleId={r.vehicleId}
+            brand={r.brand}
+            photoId={r.coverPhotoId}
+            muted={muted}
+          />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0 text-sm">

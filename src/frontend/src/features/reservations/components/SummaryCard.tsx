@@ -1,7 +1,7 @@
 import { CalendarDays, UserRound } from "lucide-react";
 import { Link } from "react-router";
 
-import VehicleArt from "@/components/custom/VehicleArt";
+import VehicleImage from "@/features/marketplace/vehicle/VehicleImage";
 import { formatDateRange, formatPrice, shortId } from "@/lib/format";
 import { ReservationStatus, type Reservation } from "@/types/types";
 import { daysLabel, vehicleName } from "@/features/marketplace/catalog/vehicle";
@@ -34,7 +34,12 @@ export default function SummaryCard({
         className="group flex items-center gap-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="aspect-4/3 w-28 shrink-0 overflow-hidden rounded-xl">
-          <VehicleArt brand={r.brand} muted={muted} />
+          <VehicleImage
+            vehicleId={r.vehicleId}
+            brand={r.brand}
+            photoId={r.coverPhotoId}
+            muted={muted}
+          />
         </div>
         <div className="min-w-0">
           <p className="truncate text-[16px] font-bold group-hover:underline">

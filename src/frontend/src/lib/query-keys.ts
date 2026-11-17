@@ -7,6 +7,9 @@ export const queryKeys = {
   availability: (id: string, from: string, to: string) =>
     ["vehicles", id, "availability", from, to] as const,
   vehicleReviews: (id: string) => ["vehicles", id, "reviews"] as const,
+  vehiclePhotos: (id: string) => ["vehicles", id, "photos"] as const,
+  // La imagen en sí no cambia nunca (un documento no se edita): se cachea aparte.
+  photo: (documentId: string) => ["photo", documentId] as const,
   // Todo lo de una reserva cuelga de esta clave: invalidarla refresca detalle, historial, etc.
   reservation: (id: string) => ["reservation", id] as const,
   reservationPart: (id: string, part: string) =>

@@ -8,7 +8,7 @@ import { listMyVehicles, setVehicleActive } from "@/api/wheelby.api";
 import EmptyState from "@/components/custom/EmptyState";
 import { CarIllustration } from "@/components/custom/Illustrations";
 import Pagination from "@/components/custom/Pagination";
-import VehicleArt from "@/components/custom/VehicleArt";
+import VehicleImage from "@/features/marketplace/vehicle/VehicleImage";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -220,7 +220,12 @@ function VehicleRow({
     >
       <div className="flex gap-4">
         <div className="aspect-4/3 w-24 shrink-0 self-start overflow-hidden rounded-xl sm:w-36">
-          <VehicleArt brand={v.brand} muted={!active} />
+          <VehicleImage
+            vehicleId={v.id}
+            brand={v.brand}
+            photoId={v.coverPhotoId}
+            muted={!active}
+          />
         </div>
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
           <div className="flex items-start justify-between gap-3">

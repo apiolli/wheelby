@@ -217,3 +217,12 @@ export const typedDocumentSchema = documentSchema.refine(
   (f) => f.type in DOCUMENT_TYPES,
   "Solo se admiten PDF, JPG, PNG o WebP.",
 );
+
+// Fotos de vehículos: solo imágenes, mismo límite de 10 MB.
+export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const PHOTO_ACCEPT = PHOTO_TYPES.join(",");
+export const MAX_PHOTOS = 10;
+export const photoSchema = documentSchema.refine(
+  (f) => PHOTO_TYPES.includes(f.type),
+  "Solo se admiten fotos JPG, PNG o WebP.",
+);
