@@ -2,10 +2,15 @@ import { useState, type FormEvent } from "react";
 import { CircleAlert } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { EMAIL_RE, passwordChecks } from "@/lib/password";
+import * as authApi from "@/api/auth.api";
+import { toApiError } from "@/api/errors";
 import PasswordStrength from "@/components/custom/PasswordStrength";
-import { requestPasswordReset, resetPassword } from "@/mock/auth";
-import { DEMO_RESET_CODE } from "@/mock/demo";
+import {
+  emailSchema,
+  fieldErrors,
+  RESET_CODE_LENGTH,
+  resetSchema,
+} from "@/lib/schemas";
 import AuthPanel from "../../shared/components/AuthPanel";
 import { SubmitButton } from "../../shared/components/SubmitButton";
 import MailSent from "../../shared/components/MailSent";
@@ -17,7 +22,7 @@ import { TextLink } from "../../shared/components/TextLink";
 
 type Step = "request" | "sent" | "reset";
 
-const CODE_LENGTH = 6;
+const CODE_LENGTH = RESET_CODE_LENGTH;
 
 interface RecoverFormProps {
   email?: string;
@@ -52,7 +57,7 @@ export default function RecoverForm({
               ¿No te llegó?{" "}
               <TextLink
                 onClick={async () => {
-                  await requestPasswordReset(email);
+                  await authApi.forgotPassword(email).catch(() => {});
                   onToast("Si el correo existe, te enviamos un código nuevo");
                 }}
               >
@@ -98,16 +103,26 @@ interface RequestStepProps {
 function RequestStep({ email, onEmail, onSent, onBack }: RequestStepProps) {
   const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
-  const valid = EMAIL_RE.test(email.trim());
+  const [error, setError] = useState<string | null>(null);
+  const check = emailSchema.safeParse(email);
+  const emailError =
+    touched && !check.success ? check.error.issues[0].message : undefined;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (!valid) return;
+    setError(null);
+    if (!check.success) return;
     setLoading(true);
-    await requestPasswordReset(email);
-    setLoading(false);
-    onSent();
+    try {
+      // RF-CA-09: la respuesta es la misma exista o no la cuenta.
+      await authApi.forgotPassword(email);
+      setLoading(false);
+      onSent();
+    } catch (err) {
+      setLoading(false);
+      setError(toApiError(err).message);
+    }
   };
 
   return (
@@ -119,6 +134,12 @@ function RequestStep({ email, onEmail, onSent, onBack }: RequestStepProps) {
         <p className="-mt-2 mb-5 text-[14.5px] text-muted-foreground">
           Te enviaremos un código para restablecerla.
         </p>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <CircleAlert />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <FloatingField
           id="recover-email"
           label="Correo electrónico"
@@ -126,8 +147,8 @@ function RequestStep({ email, onEmail, onSent, onBack }: RequestStepProps) {
           autoComplete="email"
           value={email}
           onChange={(e) => onEmail(e.target.value)}
-          invalid={touched && !valid}
-          hint="Escribe un correo válido."
+          invalid={Boolean(emailError)}
+          hint={emailError}
           autoFocus
         />
         <SubmitButton morph loading={loading} className="mt-2">
@@ -154,23 +175,29 @@ function ResetStep({ email, onRestart, onDone }: ResetStepProps) {
   const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [invalidCode, setInvalidCode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const valid = {
-    code: code.length === CODE_LENGTH,
-    password: passwordChecks(password).every(Boolean),
-    confirm: confirm.length > 0 && confirm === password,
-  };
+  const values = { code, password, confirm };
+  const invalid = touched ? fieldErrors(resetSchema, values) : {};
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (!Object.values(valid).every(Boolean)) return;
+    if (!resetSchema.safeParse(values).success) return;
     setInvalidCode(false);
+    setError(null);
     setLoading(true);
-    const ok = await resetPassword(email, code, password);
-    setLoading(false);
-    if (ok) onDone();
-    else setInvalidCode(true);
+    try {
+      await authApi.resetPassword(email, code, password);
+      setLoading(false);
+      onDone();
+    } catch (err) {
+      const { status, message } = toApiError(err);
+      setLoading(false);
+      // 400: el código no coincide, venció o ya se usó.
+      if (status === 400) setInvalidCode(true);
+      else setError(message);
+    }
   };
 
   return (
@@ -188,6 +215,11 @@ function ResetStep({ email, onRestart, onDone }: ResetStepProps) {
               <TextLink onClick={onRestart}>Solicitar un código nuevo</TextLink>
             </p>
           </div>
+        ) : error ? (
+          <Alert variant="destructive" className="mb-4">
+            <CircleAlert />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         ) : (
           <p className="mb-5 text-[14.5px] text-muted-foreground">
             Escribe el código que recibiste por correo y elige una contraseña
@@ -206,8 +238,8 @@ function ResetStep({ email, onRestart, onDone }: ResetStepProps) {
           onChange={(e) =>
             setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))
           }
-          invalid={touched && !valid.code}
-          hint={`El código tiene ${CODE_LENGTH} dígitos.`}
+          invalid={Boolean(invalid.code)}
+          hint={invalid.code}
           autoFocus
         />
         <PasswordField
@@ -216,7 +248,7 @@ function ResetStep({ email, onRestart, onDone }: ResetStepProps) {
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          invalid={touched && !valid.password}
+          invalid={Boolean(invalid.password)}
         />
         <PasswordStrength password={password} />
         <PasswordField
@@ -225,20 +257,13 @@ function ResetStep({ email, onRestart, onDone }: ResetStepProps) {
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          invalid={touched && !valid.confirm}
-          hint="Las contraseñas no coinciden."
+          invalid={Boolean(invalid.confirm)}
+          hint={invalid.confirm}
         />
 
         <SubmitButton morph loading={loading} className="mt-2">
           Restablecer contraseña
         </SubmitButton>
-
-        <p className="mt-3.5 text-center text-xs text-muted-foreground">
-          Demo: el código es{" "}
-          <code className="rounded bg-secondary px-1.5 py-px text-[11.5px]">
-            {DEMO_RESET_CODE}
-          </code>
-        </p>
       </form>
     </AuthPanel>
   );

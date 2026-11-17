@@ -9,6 +9,10 @@ const NOTICES: Record<AuthNotice, { icon: LucideIcon; text: string }> = {
     icon: CircleCheck,
     text: "Tu contraseña se actualizó. Inicia sesión con la nueva.",
   },
+  activated: {
+    icon: CircleCheck,
+    text: "Tu cuenta está activa. Ya puedes iniciar sesión.",
+  },
 };
 
 export const Notice = ({ notice }: { notice: AuthNotice }) => {

@@ -1,4 +1,4 @@
-import { useSession } from "@/stores/session.store";
+import { showToast } from "@/stores/session.store";
 import { useRouteState } from "../shared/hooks/useRouteState";
 import { useAuthMotion } from "../shared/motion.context";
 import RegisterForm from "./components/RegisterForm";
@@ -6,7 +6,6 @@ import RegisterForm from "./components/RegisterForm";
 export const RegisterPage = () => {
   const { key } = useRouteState();
   const { go } = useAuthMotion();
-  const { showToast } = useSession();
   return (
     <RegisterForm
       key={key}

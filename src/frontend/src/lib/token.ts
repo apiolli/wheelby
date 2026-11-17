@@ -29,17 +29,3 @@ export function clearToken() {
     // Nada que borrar.
   }
 }
-
-// Respuesta 401 en cualquier llamada: quien gestiona la sesión se suscribe y redirige al login.
-const unauthorizedListeners = new Set<() => void>();
-
-export function onUnauthorized(listener: () => void) {
-  unauthorizedListeners.add(listener);
-  return () => {
-    unauthorizedListeners.delete(listener);
-  };
-}
-
-export function notifyUnauthorized() {
-  unauthorizedListeners.forEach((l) => l());
-}

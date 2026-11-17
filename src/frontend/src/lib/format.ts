@@ -1,6 +1,8 @@
-// Formatos de fecha y texto compartidos. Fechas ISO (YYYY-MM-DD) en hora local.
+// Formatos de fecha, precio y texto compartidos. Acepta días (YYYY-MM-DD, en hora local) o
+// fechas completas de la API (ISO en UTC), que se muestran en la hora local.
 
-const parse = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00`);
+const parse = (iso: string) =>
+  iso.length > 10 ? new Date(iso) : new Date(`${iso}T12:00:00`);
 
 const SHORT_MONTH = new Intl.DateTimeFormat("es-DO", { month: "short" });
 const MONTH_YEAR = new Intl.DateTimeFormat("es-DO", {
@@ -33,3 +35,32 @@ export function formatDateRange(start: string, end: string) {
 export const firstName = (name: string) => name.trim().split(/\s+/)[0];
 
 export const initial = (name: string) => name.trim().charAt(0).toUpperCase();
+
+// "$4,500 por día" → formatPrice(4500) = "$4,500". DOP sin decimales; otras monedas con dos.
+export function formatPrice(amount: number, currency = "DOP") {
+  const dop = currency === "DOP";
+  const formatted = new Intl.NumberFormat("es-DO", {
+    style: "currency",
+    currency,
+    currencyDisplay: dop ? "narrowSymbol" : "code",
+    maximumFractionDigits: dop ? 0 : 2,
+    minimumFractionDigits: dop ? 0 : 2,
+  }).format(amount);
+  return formatted;
+}
+
+// "2.4 MB"
+export function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
+}
+
+// Referencia corta y legible de un id (los 6 primeros caracteres, en mayúsculas).
+export const shortId = (id: string) => id.slice(0, 6).toUpperCase();

@@ -1,11 +1,9 @@
 import { CircleAlert } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { DEMO, DEMO_ADMIN, DEMO_INACTIVE } from "@/mock/demo";
 import type { AuthNotice } from "@/types/types";
 import AuthPanel from "../../shared/components/AuthPanel";
 import MailSent from "../../shared/components/MailSent";
-import { useLogin } from "../hooks/useLogin";
-import { DemoCode } from "./DemoCode";
+import { loginErrorMessage, useLogin } from "../hooks/useLogin";
 import { Notice } from "./Notice";
 import { FloatingField } from "../../shared/components/FloatingField";
 import { ModalFoot } from "../../shared/components/ModalFoot";
@@ -32,7 +30,7 @@ export const LoginForm = ({
     resend,
     resent,
     submit,
-    ERRORS,
+    invalid,
     error,
     errorRef,
     resending,
@@ -89,7 +87,7 @@ export const LoginForm = ({
               className="outline-none"
             >
               <CircleAlert />
-              <AlertDescription>{ERRORS[error.kind]}</AlertDescription>
+              <AlertDescription>{loginErrorMessage(error)}</AlertDescription>
             </Alert>
             {error.kind === "inactive" && (
               <p className="mt-2.5 text-[13.5px]">
@@ -113,6 +111,8 @@ export const LoginForm = ({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={locked}
+          invalid={Boolean(invalid.email)}
+          hint={invalid.email}
           required
         />
         <PasswordField
@@ -121,6 +121,8 @@ export const LoginForm = ({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={locked}
+          invalid={Boolean(invalid.password)}
+          hint={invalid.password}
           required
         />
         <div className="-mt-0.5 mb-5 flex justify-end">
@@ -136,20 +138,6 @@ export const LoginForm = ({
         <SubmitButton morph loading={loading} disabled={locked}>
           Continuar
         </SubmitButton>
-
-        <div className="mt-3.5 grid gap-1 text-center text-xs text-muted-foreground">
-          <p>
-            Demo: <DemoCode>{DEMO.email}</DemoCode> ·{" "}
-            <DemoCode>{DEMO.password}</DemoCode>
-          </p>
-          <p>
-            Admin: <DemoCode>{DEMO_ADMIN.email}</DemoCode> ·{" "}
-            <DemoCode>{DEMO_ADMIN.password}</DemoCode>
-          </p>
-          <p>
-            Sin activar: <DemoCode>{DEMO_INACTIVE.email}</DemoCode>
-          </p>
-        </div>
 
         <ModalFoot>
           ¿No tienes cuenta? <TextLink onClick={onSwitch}>Regístrate</TextLink>

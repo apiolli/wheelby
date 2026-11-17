@@ -1,74 +1,61 @@
-import { createBrowserRouter, Navigate } from "react-router";
-import AuthLayout from "@/features/auth/shared/layout/AuthLayout";
+import { createBrowserRouter, Navigate, Outlet } from "react-router";
+
+import MotionRoot from "@/components/layout/MotionRoot";
+import ProtectedRoute from "@/components/layout/ProtectedRoute";
+import ScrollToTop from "@/components/layout/ScrollToTop";
+import { ActivatePage } from "@/features/auth/activate/ActivatePage";
 import { LoginPage } from "@/features/auth/login/LoginPage";
-import { RegisterPage } from "@/features/auth/register/RegisterPage";
 import { RecoverPage } from "@/features/auth/recover/RecoverPage";
+import { RegisterPage } from "@/features/auth/register/RegisterPage";
+import AuthLayout from "@/features/auth/shared/layout/AuthLayout";
+import { AdminPage, AppLayout, CatalogPage, ProfilePage } from "./pages";
 
-// const SearchPage = lazy(() => import("@/herores/pages/search/SearchPage"));
-
+// Navegación por URL: cada pantalla, sección, filtro, página y diálogo vive en la ruta o en su
+// query string, así que todo se puede enlazar, recargar y recorrer con atrás/adelante.
 export const router = createBrowserRouter([
-  //   {
-  //     path: "/",
-  //     element: (
-  //       <AuthenticatedRoute>
-  //         <MenudoLayout />
-  //       </AuthenticatedRoute>
-  //     ),
-  //     children: [
-  //       {
-  //         index: true,
-  //         element: <Navigate to={"/dashboard"} />,
-  //       },
-  //       {
-  //         path: "/dashboard",
-  //         element: <DashboardPage />,
-  //       },
-  //       {
-  //         path: "/expenses",
-  //         element: <ExpensesPage />,
-  //       },
-  //       {
-  //         path: "/categories",
-  //         element: <CategoriesPage />,
-  //       },
-  //       {
-  //         path: "/paymentMethods",
-  //         element: <PaymentMethodsPage />,
-  //       },
-  //       {
-  //         path: "/profile",
-  //         element: <ProfilePage />,
-  //       },
-  //       {
-  //         path: "/reports",
-  //         element: <ReportsPage />,
-  //       },
-  //     ],
-  //   },
   {
-    path: "/auth",
-    element: <AuthLayout />,
+    element: (
+      <MotionRoot>
+        <ScrollToTop />
+        <Outlet />
+      </MotionRoot>
+    ),
     children: [
+      // Públicas: solo las páginas de acceso.
       {
-        index: true,
-        element: <Navigate to={"/auth/login"} />,
+        path: "/auth",
+        element: <AuthLayout />,
+        children: [
+          { index: true, element: <Navigate to="/auth/login" replace /> },
+          { path: "login", element: <LoginPage /> },
+          { path: "registro", element: <RegisterPage /> },
+          { path: "recuperar", element: <RecoverPage /> },
+          { path: "activar", element: <ActivatePage /> },
+        ],
       },
+      // Todo lo demás exige sesión válida.
       {
-        path: "login",
-        element: <LoginPage />,
-      },
-      {
-        path: "registro",
-        element: <RegisterPage />,
-      },
-      {
-        path: "recuperar",
-        element: <RecoverPage />,
+        element: <ProtectedRoute />,
+        children: [
+          {
+            element: <AppLayout />,
+            children: [
+              // El catálogo es solo del rol Estándar: el Administrador va a su panel.
+              {
+                element: <ProtectedRoute requireStandard />,
+                children: [{ index: true, element: <CatalogPage /> }],
+              },
+              { path: "perfil/*", element: <ProfilePage /> },
+            ],
+          },
+          // Panel de administración: exige además el rol; layout de consola propio.
+          {
+            element: <ProtectedRoute requireAdmin />,
+            children: [{ path: "admin/*", element: <AdminPage /> }],
+          },
+          { path: "*", element: <Navigate to="/" replace /> },
+        ],
       },
     ],
-  },
-  {
-    path: "*",
-    element: <Navigate to="/auth/login" replace />,
   },
 ]);

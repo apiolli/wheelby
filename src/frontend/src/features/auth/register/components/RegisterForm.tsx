@@ -1,13 +1,16 @@
 import { useState, type FormEvent } from "react";
+import { CircleAlert } from "lucide-react";
 
+import * as authApi from "@/api/auth.api";
+import { errorMessage } from "@/api/errors";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { register } from "@/mock/auth";
+import { fieldErrors, registerSchema } from "@/lib/schemas";
 import { cn } from "cn";
 import AuthPanel from "../../shared/components/AuthPanel";
 import { SubmitButton } from "../../shared/components/SubmitButton";
 import MailSent from "../../shared/components/MailSent";
 import { useAuthMotion } from "../../shared/motion.context";
-import { EMAIL_RE, passwordChecks } from "../../../../lib/password";
 import PasswordStrength from "@/components/custom/PasswordStrength";
 import { FloatingField } from "../../shared/components/FloatingField";
 import { ModalFoot } from "../../shared/components/ModalFoot";
@@ -27,26 +30,34 @@ export default function RegisterForm({ onSwitch, onToast }: RegisterFormProps) {
   const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { swap } = useAuthMotion();
 
-  const valid = {
-    name: name.trim().length >= 3,
-    email: EMAIL_RE.test(email.trim()),
-    password: passwordChecks(password).every(Boolean),
-    accepted,
-  };
-  const canSubmit = Object.values(valid).every(Boolean);
+  const values = { name, email, password, accepted };
+  const invalid = touched ? fieldErrors(registerSchema, values) : {};
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (!canSubmit) return;
+    setError(null);
+    if (!registerSchema.safeParse(values).success) return;
     setLoading(true);
-    await register(name, email, password);
-    swap(() => {
+    try {
+      await authApi.register(name, email, password);
+      swap(() => {
+        setLoading(false);
+        setSentTo(email.trim());
+      });
+    } catch (err) {
       setLoading(false);
-      setSentTo(email.trim());
-    });
+      setError(errorMessage(err));
+    }
+  };
+
+  const resend = async () => {
+    if (!sentTo) return;
+    await authApi.resendActivation(sentTo).catch(() => {});
+    onToast("Si tu cuenta sigue pendiente, te enviamos un enlace nuevo");
   };
 
   // Estado posterior al envío: mismo modal, mismo espacio.
@@ -61,9 +72,7 @@ export default function RegisterForm({ onSwitch, onToast }: RegisterFormProps) {
           footer={
             <>
               ¿No te llegó?{" "}
-              <TextLink onClick={() => onToast("Enlace reenviado")}>
-                Reenviar correo
-              </TextLink>
+              <TextLink onClick={resend}>Reenviar correo</TextLink>
             </>
           }
         >
@@ -80,14 +89,20 @@ export default function RegisterForm({ onSwitch, onToast }: RegisterFormProps) {
   return (
     <AuthPanel title="Crea tu cuenta" greeting="Únete a Wheelby">
       <form onSubmit={submit} noValidate>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <CircleAlert />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <FloatingField
           id="reg-name"
           label="Nombre completo"
           autoComplete="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          invalid={touched && !valid.name}
-          hint="Escribe tu nombre y apellido."
+          invalid={Boolean(invalid.name)}
+          hint={invalid.name}
         />
         <FloatingField
           id="reg-email"
@@ -96,15 +111,15 @@ export default function RegisterForm({ onSwitch, onToast }: RegisterFormProps) {
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          invalid={touched && !valid.email}
-          hint="Escribe un correo válido."
+          invalid={Boolean(invalid.email)}
+          hint={invalid.email}
         />
         <PasswordField
           id="reg-password"
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          invalid={touched && !valid.password}
+          invalid={Boolean(invalid.password)}
         />
 
         <PasswordStrength password={password} />
@@ -115,13 +130,13 @@ export default function RegisterForm({ onSwitch, onToast }: RegisterFormProps) {
             className="mt-px"
             checked={accepted}
             onCheckedChange={(v) => setAccepted(v === true)}
-            aria-invalid={(touched && !accepted) || undefined}
+            aria-invalid={Boolean(invalid.accepted) || undefined}
           />
           <label
             htmlFor="reg-terms"
             className={cn(
               "cursor-pointer text-[13px] leading-snug text-muted-foreground",
-              touched && !accepted && "text-destructive",
+              invalid.accepted && "text-destructive",
             )}
           >
             Acepto los{" "}
