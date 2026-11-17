@@ -52,7 +52,7 @@ export default function SearchPage() {
           datesOpen={datesOpen}
           onDatesOpenChange={setDatesOpen}
         />
-        <p className="text-[15px] font-semibold" aria-live="polite">
+        <div className="text-[15px] font-semibold" aria-live="polite">
           {results.isPending ? (
             <Skeleton className="inline-block h-4 w-64 rounded-full align-middle" />
           ) : results.isError ? null : (
@@ -70,7 +70,7 @@ export default function SearchPage() {
               )}
             </>
           )}
-        </p>
+        </div>
         {results.conversionFailed && (
           <m.div {...ENTER}>
             <Alert variant="highlight" className="max-w-160">
