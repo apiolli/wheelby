@@ -12,7 +12,11 @@ import {
   AdminPage,
   AppLayout,
   CatalogPage,
+  HostReservationsPage,
+  HostRoute,
+  MyVehiclesPage,
   ProfilePage,
+  VehicleFormPage,
   ReservationPage,
   ReservePage,
   SearchPage,
@@ -57,6 +61,21 @@ export const router = createBrowserRouter([
                   { path: "buscar", element: <SearchPage /> },
                   { path: "vehiculos/:id", element: <VehiclePage /> },
                   { path: "reservar/:vehiculoId", element: <ReservePage /> },
+                  // Anfitrión: exige el permiso de publicar (si no, 403).
+                  {
+                    path: "anfitrion",
+                    element: <HostRoute />,
+                    children: [
+                      {
+                        index: true,
+                        element: <Navigate to="vehiculos" replace />,
+                      },
+                      { path: "vehiculos", element: <MyVehiclesPage /> },
+                      { path: "vehiculos/nuevo", element: <VehicleFormPage /> },
+                      { path: "vehiculos/:id", element: <VehicleFormPage /> },
+                      { path: "reservas", element: <HostReservationsPage /> },
+                    ],
+                  },
                 ],
               },
               // Lo ven las dos partes de la reserva y el Administrador.

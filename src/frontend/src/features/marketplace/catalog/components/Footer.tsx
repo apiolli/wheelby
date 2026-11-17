@@ -16,7 +16,7 @@ const MEMBER_COLUMNS = [
     title: "Anfitriones",
     links: [
       { to: "/perfil/anfitrion", label: "Conviértete en anfitrión" },
-      { to: "/perfil/solicitudes", label: "Solicitudes recibidas" },
+      { to: "/anfitrion/reservas", label: "Solicitudes recibidas" },
     ],
   },
   {

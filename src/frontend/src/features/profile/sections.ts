@@ -2,7 +2,6 @@ import {
   BadgeCheck,
   CalendarDays,
   FileText,
-  Inbox,
   ShieldCheck,
   UserRound,
   type LucideIcon,
@@ -43,13 +42,6 @@ export const PROFILE_SECTIONS: ProfileSection[] = [
     label: "Anfitrión",
     description: "Comparte tu vehículo",
     icon: BadgeCheck,
-    standardOnly: true,
-  },
-  {
-    id: "solicitudes",
-    label: "Solicitudes recibidas",
-    description: "Reservas de tus vehículos",
-    icon: Inbox,
     standardOnly: true,
   },
   {

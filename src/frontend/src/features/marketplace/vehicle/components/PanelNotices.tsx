@@ -18,7 +18,7 @@ export function OwnVehicleNotice() {
         Así lo ven los arrendatarios. No puedes reservar tu propio vehículo.
       </p>
       <Link
-        to="/perfil/anfitrion"
+        to="/anfitrion/vehiculos"
         className={buttonVariants({
           variant: "outline",
           size: "lg",

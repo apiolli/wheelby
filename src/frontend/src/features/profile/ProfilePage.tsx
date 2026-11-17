@@ -20,7 +20,6 @@ import DocumentsSection from "./sections/DocumentsSection";
 import HostSection from "./sections/HostSection";
 import ReservationsSection from "./sections/ReservationsSection";
 import SecuritySection from "./sections/SecuritySection";
-import HostRequestsSection from "./sections/HostRequestsSection";
 
 // Perfil: sidebar de secciones + contenido en escritorio; en móvil, la lista de secciones es la
 // portada (/perfil) y cada sección se abre en su propia ruta con "volver".
@@ -80,7 +79,11 @@ export default function ProfilePage() {
                 <>
                   <Route path="reservas" element={<ReservationsSection />} />
                   <Route path="anfitrion" element={<HostSection />} />
-                  <Route path="solicitudes" element={<HostRequestsSection />} />
+                  {/* Las reservas recibidas viven ahora en /anfitrion/reservas. */}
+                  <Route
+                    path="solicitudes"
+                    element={<Navigate to="/anfitrion/reservas" replace />}
+                  />
                 </>
               )}
               <Route path="*" element={<Navigate to="/perfil" replace />} />

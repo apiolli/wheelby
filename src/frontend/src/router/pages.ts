@@ -20,3 +20,13 @@ export const ReservePage = lazy(
 export const ReservationPage = lazy(
   () => import("@/features/reservations/ReservationPage"),
 );
+export const HostRoute = lazy(() => import("@/features/host/HostRoute"));
+export const MyVehiclesPage = lazy(
+  () => import("@/features/host/vehicles/MyVehiclesPage"),
+);
+export const VehicleFormPage = lazy(
+  () => import("@/features/host/vehicles/VehicleFormPage"),
+);
+export const HostReservationsPage = lazy(
+  () => import("@/features/host/reservations/HostReservationsPage"),
+);

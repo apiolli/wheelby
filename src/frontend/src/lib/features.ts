@@ -14,4 +14,13 @@ export const features = {
   reservationDocuments: true,
   // P4: reseñas de reservas completadas y sección de reseñas en la ficha.
   reviews: true,
+  // P1: GET /vehicles/mine. Sin él, tras publicar se vuelve al catálogo.
+  myVehicles: true,
+  // P4: PUT /vehicles/{id} y activar o desactivar.
+  vehicleEdit: true,
+  // P4: tipo, ciudad y descripción del vehículo en el formulario.
+  vehicleDetails: true,
+  // P4: fotos de vehículos. El backend las admite, pero el diseño actual las deja fuera
+  // (cada vehículo usa su ilustración de marca); la sección solo se reserva.
+  vehiclePhotos: false,
 } as const;

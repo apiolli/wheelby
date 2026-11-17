@@ -47,7 +47,7 @@ export default function UserMenu({ user }: { user: User }) {
             </DropdownMenuItem>
             <DropdownMenuItem
               className="font-semibold"
-              onClick={() => navigate("/perfil/solicitudes")}
+              onClick={() => navigate("/anfitrion/reservas")}
             >
               Solicitudes recibidas
             </DropdownMenuItem>

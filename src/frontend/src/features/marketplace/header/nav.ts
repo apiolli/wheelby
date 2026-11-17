@@ -27,10 +27,10 @@ export const MEMBER_NAV: NavItem[] = [
     match: (p) => p.startsWith("/perfil/reservas"),
   },
   {
-    to: "/perfil/solicitudes",
+    to: "/anfitrion/reservas",
     label: "Solicitudes",
     icon: Inbox,
-    match: (p) => p.startsWith("/perfil/solicitudes"),
+    match: (p) => p.startsWith("/anfitrion/reservas"),
   },
   {
     to: "/perfil/anfitrion",

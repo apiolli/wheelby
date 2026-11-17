@@ -102,7 +102,7 @@ export default function ReservationPage() {
             admin
               ? "/admin/reservas"
               : side === "host"
-                ? "/perfil/solicitudes"
+                ? "/anfitrion/reservas"
                 : "/perfil/reservas"
           }
           className="inline-flex w-fit items-center gap-1 rounded-full py-1 pr-2 text-[13.5px] font-semibold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
@@ -220,6 +220,8 @@ export default function ReservationPage() {
             {features.reservationDocuments && (
               <DocumentsCard
                 reservationId={r.id}
+                status={r.status}
+                side={side}
                 documents={documents.data}
                 isPending={documents.isPending}
                 admin={admin}

@@ -8,6 +8,7 @@ import {
   rejectReservation,
   startRental,
 } from "@/api/wheelby.api";
+import { ERROR_CODES, toApiError } from "@/api/errors";
 import ConfirmAction from "@/components/custom/ConfirmAction";
 import { Button } from "@/components/ui/button";
 import ReasonAction from "@/features/profile/components/ReasonAction";
@@ -33,9 +34,15 @@ const RUN: Record<
 export default function ActionsPanel({
   reservation,
   side,
+  compact,
+  onOverlap,
 }: {
   reservation: Reservation;
   side: Side;
+  // En línea dentro de una tarjeta: botones chicos y nada si no hay acciones.
+  compact?: boolean;
+  // Confirmar falló porque otra reserva ya bloquea esas fechas (409 vehicle.overlap).
+  onOverlap?: (message: string) => void;
 }) {
   const queryClient = useQueryClient();
   const actions = actionsFor(reservation, side);
@@ -52,6 +59,21 @@ export default function ActionsPanel({
     },
   });
 
+  // Si confirmar choca con otra reserva, el aviso va a un banner y el diálogo se cierra.
+  const run = async (kind: ActionKind, reason: string) => {
+    try {
+      await act.mutateAsync({ kind, reason });
+    } catch (err) {
+      const e = toApiError(err);
+      if (kind === "confirm" && e.code === ERROR_CODES.overlap && onOverlap) {
+        onOverlap(e.message);
+        return;
+      }
+      throw err;
+    }
+  };
+
+  if (actions.length === 0 && compact) return null;
   if (actions.length === 0)
     return (
       <p className="text-[14px] text-muted-foreground">
@@ -62,14 +84,24 @@ export default function ActionsPanel({
     );
 
   return (
-    <ul className="flex flex-wrap gap-3">
+    <ul
+      className={
+        compact ? "flex flex-wrap justify-end gap-2" : "flex flex-wrap gap-3"
+      }
+    >
       {actions.map((a) => {
         const copy = ACTION_COPY[a.kind];
         const destructive = copy.destructive;
         const trigger = (
           <Button
-            variant={destructive ? "destructive-outline" : "default"}
-            size="lg"
+            variant={
+              destructive
+                ? compact
+                  ? "outline"
+                  : "destructive-outline"
+                : "default"
+            }
+            size={compact ? "sm" : "lg"}
             className="rounded-full"
             disabled={!a.enabled}
           >
@@ -77,7 +109,13 @@ export default function ActionsPanel({
           </Button>
         );
         return (
-          <m.li key={a.kind} layout className="grid gap-1.5">
+          <m.li
+            key={a.kind}
+            layout
+            className={
+              compact ? "grid justify-items-end gap-1" : "grid gap-1.5"
+            }
+          >
             {!a.enabled ? (
               trigger
             ) : a.reason === "none" ? (
@@ -86,7 +124,7 @@ export default function ActionsPanel({
                 title={copy.title}
                 description={copy.description}
                 confirmLabel={copy.confirm}
-                onConfirm={() => act.mutateAsync({ kind: a.kind, reason: "" })}
+                onConfirm={() => run(a.kind, "")}
               />
             ) : (
               <ReasonAction
@@ -101,15 +139,11 @@ export default function ActionsPanel({
                     ? "Si quieres, cuéntale al anfitrión por qué."
                     : undefined
                 }
-                onConfirm={(reason) =>
-                  act.mutateAsync({ kind: a.kind, reason })
-                }
+                onConfirm={(reason) => run(a.kind, reason)}
               />
             )}
             {a.hint && (
-              <p className="pl-1 text-[12.5px] text-muted-foreground">
-                {a.hint}
-              </p>
+              <p className="px-1 text-[12px] text-muted-foreground">{a.hint}</p>
             )}
           </m.li>
         );

@@ -202,3 +202,18 @@ export const documentSchema = z
     (f) => f.name.length <= 255,
     "El nombre del archivo es demasiado largo.",
   );
+
+// Licencia, matrícula, actas de entrega y devolución: fotos o PDF.
+export const DOCUMENT_TYPES = {
+  "application/pdf": "PDF",
+  "image/jpeg": "JPG",
+  "image/png": "PNG",
+  "image/webp": "WebP",
+} as const;
+export const DOCUMENT_ACCEPT = Object.keys(DOCUMENT_TYPES).join(",");
+export const DOCUMENT_FORMATS_LABEL = `${Object.values(DOCUMENT_TYPES).join(", ")} · hasta 10 MB`;
+
+export const typedDocumentSchema = documentSchema.refine(
+  (f) => f.type in DOCUMENT_TYPES,
+  "Solo se admiten PDF, JPG, PNG o WebP.",
+);

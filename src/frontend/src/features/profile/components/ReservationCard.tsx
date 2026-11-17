@@ -13,6 +13,8 @@ import { ReservationStatus, type Reservation } from "@/types/types";
 interface ReservationCardProps {
   reservation: Reservation;
   actions?: ReactNode;
+  // Línea extra bajo el vehículo (p. ej. el arrendatario, en las reservas recibidas).
+  meta?: ReactNode;
 }
 
 // Tarjeta horizontal: ilustración pequeña, vehículo, fechas, total y estado. Toda la tarjeta
@@ -20,6 +22,7 @@ interface ReservationCardProps {
 export default function ReservationCard({
   reservation: r,
   actions,
+  meta,
 }: ReservationCardProps) {
   const muted = r.status === ReservationStatus.Cancelled;
   const name = vehicleName(r);
@@ -34,7 +37,7 @@ export default function ReservationCard({
       className="group/card relative rounded-[18px] border border-border p-3 hover:border-foreground/40 sm:p-4"
     >
       <div className="flex gap-4 sm:items-center">
-        <div className="aspect-4/3 w-24 shrink-0 overflow-hidden rounded-xl sm:w-32">
+        <div className="aspect-4/3 w-24 shrink-0 self-start overflow-hidden rounded-xl sm:w-32 sm:self-center">
           <VehicleArt brand={r.brand} muted={muted} />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -55,6 +58,7 @@ export default function ReservationCard({
                 · {r.year}
               </span>
             </p>
+            {meta}
             <p className="mt-1 flex items-center gap-1.5 text-muted-foreground">
               <CalendarDays className="size-3.5 shrink-0" strokeWidth={2} />
               {formatDateRange(r.startDate, r.endDate)} · {daysLabel(r.days)}

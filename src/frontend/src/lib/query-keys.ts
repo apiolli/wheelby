@@ -16,6 +16,12 @@ export const queryKeys = {
       ? (["reservations", "mine", as] as const)
       : (["reservations", "mine", as, page] as const),
   myRequests: ["permissions", "mine"] as const,
+  myVehicles: (page?: number) =>
+    page === undefined
+      ? (["vehicles", "mine"] as const)
+      : (["vehicles", "mine", page] as const),
+  // Todas las reservas recibidas (se leen completas para contar por pestaña y por vehículo).
+  hostReservations: ["reservations", "mine", "host", "all"] as const,
   documents: (page?: number) =>
     page === undefined
       ? (["documents"] as const)
