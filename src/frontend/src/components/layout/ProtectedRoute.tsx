@@ -1,5 +1,8 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 
+import { ForbiddenPage } from "@/features/errors/ErrorPages";
+import { AppLayout } from "@/router/pages";
+
 import Splash from "@/components/custom/Splash";
 import { loginPath } from "@/lib/redirect";
 import { isAdmin, useSession } from "@/stores/session.store";
@@ -38,7 +41,13 @@ export default function ProtectedRoute({
     );
   }
 
-  if (requireAdmin && !isAdmin(user)) return <Navigate to="/" replace />;
+  // Con sesión pero sin el rol: 403 dentro del layout normal (no una redirección silenciosa).
+  if (requireAdmin && !isAdmin(user))
+    return (
+      <AppLayout>
+        <ForbiddenPage />
+      </AppLayout>
+    );
   if (requireStandard && isAdmin(user)) return <Navigate to="/admin" replace />;
 
   return <Outlet />;

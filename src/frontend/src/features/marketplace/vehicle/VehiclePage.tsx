@@ -11,10 +11,12 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
-import { errorCode, ERROR_CODES, errorMessage } from "@/api/errors";
+import { errorCode, ERROR_CODES } from "@/api/errors";
+import { PageError } from "@/components/custom/ErrorStates";
+import { VehicleDetailSkeleton } from "@/components/custom/Skeletons";
+import { NotFoundPage } from "@/features/errors/ErrorPages";
 import EmptyState from "@/components/custom/EmptyState";
 import { CarIllustration } from "@/components/custom/Illustrations";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
@@ -88,46 +90,13 @@ export default function VehiclePage() {
       </Centered>
     );
 
-  if (!vehicle && isPending) return <VehicleSkeleton />;
+  if (!vehicle && isPending) return <VehicleDetailSkeleton />;
 
   if (!vehicle || isError) {
-    const notFound = errorCode(error) === ERROR_CODES.vehicleNotFound;
-    return (
-      <Centered>
-        {notFound ? (
-          <EmptyState
-            illustration={<CarIllustration className="w-37.5" />}
-            title="Este vehículo no está disponible"
-            text="Puede que ya no exista. Busca otro en el catálogo."
-            action={
-              <Link
-                to="/buscar"
-                className={buttonVariants({
-                  size: "lg",
-                  className: "rounded-full",
-                })}
-              >
-                Explorar vehículos
-              </Link>
-            }
-          />
-        ) : (
-          <Alert variant="destructive">
-            <AlertDescription>
-              {errorMessage(error)}
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 rounded-full"
-                onClick={() => refetch()}
-              >
-                Reintentar
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-      </Centered>
-    );
+    // Inexistente (o ajeno): 404, sin revelar nada. Otro fallo: error de página.
+    if (errorCode(error) === ERROR_CODES.vehicleNotFound)
+      return <NotFoundPage />;
+    return <PageError error={error} onRetry={() => refetch()} />;
   }
 
   const own = vehicle.ownerId === user.id;
@@ -241,7 +210,7 @@ export default function VehiclePage() {
 
       {!desktop && (
         <>
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-background/95 px-gutter py-3 backdrop-blur">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-background/95 px-gutter pt-3 pb-safe backdrop-blur">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0 text-[14px]">
                 <p>
@@ -287,27 +256,4 @@ export default function VehiclePage() {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return <main className="mx-auto max-w-160 px-gutter py-12">{children}</main>;
-}
-
-function VehicleSkeleton() {
-  return (
-    <main
-      className="px-gutter pt-12 pb-16"
-      aria-busy="true"
-      aria-label="Cargando vehículo"
-    >
-      <div className="mx-auto grid max-w-280 animate-pulse gap-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-14">
-        <div className="grid gap-6">
-          <div className="aspect-16/10 rounded-[20px] bg-secondary" />
-          <div className="h-8 w-2/3 rounded-full bg-secondary" />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-16 rounded-2xl bg-secondary" />
-            ))}
-          </div>
-        </div>
-        <div className="hidden h-96 rounded-[20px] bg-secondary lg:block" />
-      </div>
-    </main>
-  );
 }

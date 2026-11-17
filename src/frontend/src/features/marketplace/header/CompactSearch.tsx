@@ -5,12 +5,7 @@ import { cn } from "cn";
 
 import { formatDate } from "@/lib/format";
 import { CONTENT_FADE, HEADER_SPRING } from "@/lib/motion";
-import {
-  rangeLabel,
-  SEARCH_FIELDS,
-  type SearchField,
-  type SearchQuery,
-} from "./search";
+import { SEARCH_FIELDS, type SearchField, type SearchQuery } from "./search";
 
 interface CompactSearchProps {
   value: SearchQuery;
@@ -71,43 +66,5 @@ export function CompactSearch({
         </button>
       </m.div>
     </m.div>
-  );
-}
-
-// Versión móvil: una sola píldora con resumen de la búsqueda.
-export function MobileSearchPill({
-  value,
-  onPick,
-  layoutId,
-  className,
-}: CompactSearchProps) {
-  return (
-    <m.button
-      type="button"
-      onClick={() => onPick("from")}
-      layoutId={layoutId}
-      transition={HEADER_SPRING}
-      style={{ borderRadius: 26 }}
-      className={cn(
-        "h-13 min-w-0 border border-border bg-background text-left shadow-float transition-shadow active:shadow-float-lg",
-        className,
-      )}
-    >
-      <m.span
-        layout
-        {...CONTENT_FADE}
-        className="flex h-full items-center gap-3 pr-5 pl-4"
-      >
-        <Search className="size-4.5 shrink-0" strokeWidth={2.6} />
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-bold">
-            Buscar vehículos
-          </span>
-          <span className="block truncate text-xs text-muted-foreground">
-            {rangeLabel(value)} · {value.currency}
-          </span>
-        </span>
-      </m.span>
-    </m.button>
   );
 }

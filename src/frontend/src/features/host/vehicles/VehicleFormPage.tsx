@@ -5,12 +5,13 @@ import { ChevronLeft, CircleAlert, LoaderCircle, Lock } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { cn } from "cn";
 
-import { ERROR_CODES, errorMessage, toApiError } from "@/api/errors";
+import { errorCode, ERROR_CODES, errorMessage, toApiError } from "@/api/errors";
+import { PageError } from "@/components/custom/ErrorStates";
+import { Loading, Skeleton } from "@/components/custom/Skeletons";
+import { NotFoundPage } from "@/features/errors/ErrorPages";
 import { getVehicle, publishVehicle, updateVehicle } from "@/api/wheelby.api";
-import EmptyState from "@/components/custom/EmptyState";
 import FormField from "@/components/custom/FormField";
 import { inputClass } from "@/lib/form";
-import { CarIllustration } from "@/components/custom/Illustrations";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import VehicleCard from "@/features/marketplace/catalog/components/VehicleCard";
@@ -49,33 +50,22 @@ export default function VehicleFormPage() {
   if (!id) return <VehicleForm />;
   if (existing.isPending)
     return (
-      <main
-        className="min-h-[60vh] px-gutter"
-        aria-busy="true"
-        aria-label="Cargando vehículo"
-      />
+      <Loading label="Cargando vehículo" className="px-gutter pt-12">
+        <div className="mx-auto grid max-w-280 gap-6">
+          <Skeleton className="h-9 w-64 rounded-full" />
+          <Skeleton className="h-64 max-w-180 rounded-[20px]" />
+        </div>
+      </Loading>
     );
-  if (existing.isError || existing.data.ownerId !== user.id)
+  // Inexistente o ajeno: 404, sin revelar si existe. Otro fallo: error de página.
+  if (existing.isError) {
+    if (errorCode(existing.error) === ERROR_CODES.vehicleNotFound)
+      return <NotFoundPage />;
     return (
-      <main className="mx-auto max-w-160 px-gutter py-12">
-        <EmptyState
-          illustration={<CarIllustration className="w-37.5" />}
-          title="No encontramos este vehículo"
-          text="Puede que no exista o que no sea tuyo."
-          action={
-            <Link
-              to="/anfitrion/vehiculos"
-              className={buttonVariants({
-                size: "lg",
-                className: "rounded-full",
-              })}
-            >
-              Ir a Mis vehículos
-            </Link>
-          }
-        />
-      </main>
+      <PageError error={existing.error} onRetry={() => existing.refetch()} />
     );
+  }
+  if (existing.data.ownerId !== user.id) return <NotFoundPage />;
   return <VehicleForm vehicle={existing.data} />;
 }
 

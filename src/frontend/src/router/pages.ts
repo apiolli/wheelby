@@ -30,3 +30,4 @@ export const VehicleFormPage = lazy(
 export const HostReservationsPage = lazy(
   () => import("@/features/host/reservations/HostReservationsPage"),
 );
+export const LegalPage = lazy(() => import("@/features/legal/LegalPage"));

@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { m } from "motion/react";
-import { MessageSquareQuote } from "lucide-react";
 
 import { listVehicleReviews } from "@/api/wheelby.api";
+import EmptyState from "@/components/custom/EmptyState";
+import { SectionError } from "@/components/custom/ErrorStates";
+import { ReviewIllustration } from "@/components/custom/Illustrations";
+import { Loading, Skeleton } from "@/components/custom/Skeletons";
 import { Button } from "@/components/ui/button";
 import { formatMonthYear } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
@@ -23,12 +26,21 @@ export default function VehicleReviews({ vehicleId }: { vehicleId: string }) {
 
   if (reviews.isPending)
     return (
-      <section aria-busy="true" className="grid gap-3">
-        <div className="h-6 w-48 animate-pulse rounded-full bg-secondary" />
-        <div className="h-20 animate-pulse rounded-2xl bg-secondary" />
+      <Loading label="Cargando reseñas" className="grid gap-3">
+        <Skeleton className="h-6 w-48 rounded-full" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-32 rounded-[18px]" />
+          <Skeleton className="h-32 rounded-[18px]" />
+        </div>
+      </Loading>
+    );
+  if (reviews.isError)
+    return (
+      <section className="grid gap-4">
+        <h2 className="text-xl font-bold tracking-tight">Reseñas</h2>
+        <SectionError error={reviews.error} onRetry={() => reviews.refetch()} />
       </section>
     );
-  if (reviews.isError) return null;
 
   const items = reviews.data.items;
   const average = items.length
@@ -60,11 +72,11 @@ export default function VehicleReviews({ vehicleId }: { vehicleId: string }) {
       </header>
 
       {items.length === 0 ? (
-        <p className="flex items-center gap-3 rounded-2xl bg-secondary px-5 py-4 text-[14.5px] text-muted-foreground">
-          <MessageSquareQuote className="size-5 shrink-0" strokeWidth={1.75} />
-          Aún no tiene reseñas. Las dejan los arrendatarios al terminar un
-          alquiler.
-        </p>
+        <EmptyState
+          illustration={<ReviewIllustration className="w-32" />}
+          title="Aún no hay reseñas para este vehículo."
+          text="Las dejan los arrendatarios al terminar un alquiler."
+        />
       ) : (
         <>
           <ul className="grid gap-4 sm:grid-cols-2">

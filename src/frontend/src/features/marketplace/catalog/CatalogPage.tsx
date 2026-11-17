@@ -1,9 +1,10 @@
 import { m } from "motion/react";
-import { CircleAlert, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { useSearchParams } from "react-router";
 
-import { errorMessage } from "@/api/errors";
 import EmptyState from "@/components/custom/EmptyState";
+import { SectionError } from "@/components/custom/ErrorStates";
+import { VehicleGridSkeleton } from "@/components/custom/Skeletons";
 import { CarIllustration } from "@/components/custom/Illustrations";
 import Pagination from "@/components/custom/Pagination";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,7 +24,7 @@ const GRID =
 export default function CatalogPage() {
   const [params] = useSearchParams();
   const search = parseCatalogParams(params);
-  const { data, isPending, isError, error, isPlaceholderData } =
+  const { data, isPending, isError, error, isPlaceholderData, refetch } =
     useAvailableVehicles(search);
   const linkSearch = { ...search, hasDates: search.custom };
 
@@ -57,20 +58,13 @@ export default function CatalogPage() {
       </m.header>
 
       {isPending ? (
-        <ul className={GRID} aria-busy="true" aria-label="Cargando vehículos">
-          {Array.from({ length: 8 }, (_, i) => (
-            <li key={i} className="animate-pulse">
-              <div className="aspect-4/3 rounded-2xl bg-secondary" />
-              <div className="mt-3 h-3.5 w-2/3 rounded-full bg-secondary" />
-              <div className="mt-2 h-3 w-1/2 rounded-full bg-secondary" />
-            </li>
-          ))}
-        </ul>
+        <VehicleGridSkeleton className={GRID} />
       ) : isError ? (
-        <Alert variant="destructive" className="max-w-160">
-          <CircleAlert />
-          <AlertDescription>{errorMessage(error)}</AlertDescription>
-        </Alert>
+        <SectionError
+          error={error}
+          onRetry={() => refetch()}
+          className="max-w-160"
+        />
       ) : data.items.length === 0 ? (
         <EmptyState
           illustration={<CarIllustration className="w-37.5" />}

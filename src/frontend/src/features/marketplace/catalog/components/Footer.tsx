@@ -77,7 +77,15 @@ export default function Footer() {
       </div>
       <Separator />
       <div className="flex flex-wrap items-center justify-between gap-3 pt-5 pb-6">
-        <small className="text-sm">© {new Date().getFullYear()} Wheelby</small>
+        <small className="flex flex-wrap items-center gap-x-3 text-sm">
+          © {new Date().getFullYear()} Wheelby
+          <Link to="/terminos" className="hover:underline">
+            Términos
+          </Link>
+          <Link to="/privacidad" className="hover:underline">
+            Privacidad
+          </Link>
+        </small>
         <span className="text-sm text-muted-foreground">
           Español (DO) · Precios en DOP
         </span>

@@ -1,14 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, m } from "motion/react";
-import {
-  CircleAlert,
-  Download,
-  FileText,
-  LoaderCircle,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { Download, FileText, LoaderCircle, Trash2, Upload } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
@@ -21,9 +14,10 @@ import {
 } from "@/api/wheelby.api";
 import ConfirmAction from "@/components/custom/ConfirmAction";
 import EmptyState from "@/components/custom/EmptyState";
+import { SectionError } from "@/components/custom/ErrorStates";
+import { ReservationListSkeleton } from "@/components/custom/Skeletons";
 import { DocumentIllustration } from "@/components/custom/Illustrations";
 import Pagination from "@/components/custom/Pagination";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { formatBytes, formatDate, shortId } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
@@ -138,21 +132,32 @@ export default function DocumentsManager({
       />
 
       {documents.isPending ? (
-        <div
-          className="h-48 animate-pulse rounded-2xl bg-secondary"
-          aria-busy="true"
-        />
+        <ReservationListSkeleton count={2} />
       ) : documents.isError ? (
-        <Alert variant="destructive">
-          <CircleAlert />
-          <AlertDescription>{errorMessage(documents.error)}</AlertDescription>
-        </Alert>
+        <SectionError
+          error={documents.error}
+          onRetry={() => documents.refetch()}
+        />
       ) : items.length === 0 ? (
         <EmptyState
           illustration={<DocumentIllustration className="w-37.5" />}
-          title="Aún no tienes documentos"
+          title="Aún no has subido ningún documento."
           text="Sube tu licencia, la matrícula de tu vehículo o cualquier archivo que quieras tener a mano."
-          action={uploadButton}
+          action={
+            <Button
+              size="lg"
+              className="rounded-full"
+              onClick={() => fileRef.current?.click()}
+              disabled={upload.isPending}
+            >
+              {upload.isPending ? (
+                <LoaderCircle className="animate-spin" />
+              ) : (
+                <Upload />
+              )}
+              {upload.isPending ? "Subiendo…" : "Subir"}
+            </Button>
+          }
         />
       ) : (
         <>

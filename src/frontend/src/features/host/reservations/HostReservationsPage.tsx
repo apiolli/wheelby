@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { AnimatePresence, m } from "motion/react";
-import { CalendarX2, CircleAlert, UserRound, X } from "lucide-react";
+import { CalendarX2, UserRound, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import { cn } from "cn";
 
-import { errorMessage } from "@/api/errors";
 import EmptyState from "@/components/custom/EmptyState";
+import { SectionError } from "@/components/custom/ErrorStates";
+import { ReservationListSkeleton } from "@/components/custom/Skeletons";
 import { CalendarIllustration } from "@/components/custom/Illustrations";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReservationCard from "@/features/profile/components/ReservationCard";
 import ActionsPanel from "@/features/reservations/components/ActionsPanel";
@@ -16,6 +17,7 @@ import { features } from "@/lib/features";
 import { shortId } from "@/lib/format";
 import { ENTER } from "@/lib/motion";
 import { ReservationStatus, type Reservation } from "@/types/types";
+import HostSubnav from "../components/HostSubnav";
 import { useHostReservations } from "../useHostReservations";
 
 type TabId = "solicitudes" | "confirmadas" | "en-curso" | "historial";
@@ -94,6 +96,7 @@ export default function HostReservationsPage() {
   return (
     <main className="px-gutter pt-6 pb-16">
       <div className="mx-auto grid max-w-240 grid-cols-1 gap-6">
+        <HostSubnav />
         <m.header {...ENTER} className="grid gap-1">
           <h1 className="text-[26px] leading-tight font-bold tracking-tight md:text-[30px]">
             Reservas recibidas
@@ -180,33 +183,12 @@ export default function HostReservationsPage() {
         </AnimatePresence>
 
         {reservations.isPending ? (
-          <ul
-            className="grid grid-cols-1 gap-3"
-            aria-busy="true"
-            aria-label="Cargando reservas"
-          >
-            {[0, 1, 2].map((i) => (
-              <li
-                key={i}
-                className="h-36 animate-pulse rounded-[18px] bg-secondary"
-              />
-            ))}
-          </ul>
+          <ReservationListSkeleton />
         ) : reservations.isError ? (
-          <Alert variant="destructive">
-            <CircleAlert />
-            <AlertDescription>
-              {errorMessage(reservations.error)}
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 rounded-full"
-                onClick={() => reservations.refetch()}
-              >
-                Reintentar
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <SectionError
+            error={reservations.error}
+            onRetry={() => reservations.refetch()}
+          />
         ) : items.length === 0 ? (
           <EmptyState
             illustration={<CalendarIllustration className="w-37.5" />}

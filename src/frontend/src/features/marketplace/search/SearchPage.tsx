@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { m } from "motion/react";
-import { CircleAlert, Info, LoaderCircle, RotateCw } from "lucide-react";
+import { Info, LoaderCircle } from "lucide-react";
 import { useSearchParams } from "react-router";
 
-import { errorMessage } from "@/api/errors";
 import EmptyState from "@/components/custom/EmptyState";
+import { SectionError } from "@/components/custom/ErrorStates";
+import { Skeleton, VehicleGridSkeleton } from "@/components/custom/Skeletons";
 import { CarIllustration } from "@/components/custom/Illustrations";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ export default function SearchPage() {
         />
         <p className="text-[15px] font-semibold" aria-live="polite">
           {results.isPending ? (
-            <span className="inline-block h-4 w-64 animate-pulse rounded-full bg-secondary align-middle" />
+            <Skeleton className="inline-block h-4 w-64 rounded-full align-middle" />
           ) : results.isError ? null : (
             <>
               {results.total}{" "}
@@ -84,22 +85,13 @@ export default function SearchPage() {
       </m.header>
 
       {results.isPending ? (
-        <ResultsSkeleton />
+        <VehicleGridSkeleton className={RESULTS_GRID} />
       ) : results.isError ? (
-        <Alert variant="destructive" className="max-w-160">
-          <CircleAlert />
-          <AlertDescription>
-            {errorMessage(results.error)}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3 rounded-full"
-              onClick={() => results.refetch()}
-            >
-              <RotateCw /> Reintentar
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <SectionError
+          error={results.error}
+          onRetry={() => results.refetch()}
+          className="max-w-160"
+        />
       ) : results.items.length === 0 ? (
         <EmptyState
           illustration={<CarIllustration className="w-37.5" />}
@@ -162,24 +154,5 @@ export default function SearchPage() {
         </m.div>
       )}
     </main>
-  );
-}
-
-export function ResultsSkeleton() {
-  return (
-    <ul
-      className={RESULTS_GRID}
-      aria-busy="true"
-      aria-label="Cargando vehículos"
-    >
-      {Array.from({ length: 8 }, (_, i) => (
-        <li key={i} className="animate-pulse">
-          <div className="aspect-4/3 rounded-[18px] bg-secondary" />
-          <div className="mt-3 h-3.5 w-2/3 rounded-full bg-secondary" />
-          <div className="mt-2 h-3 w-1/3 rounded-full bg-secondary" />
-          <div className="mt-2 h-3 w-1/2 rounded-full bg-secondary" />
-        </li>
-      ))}
-    </ul>
   );
 }

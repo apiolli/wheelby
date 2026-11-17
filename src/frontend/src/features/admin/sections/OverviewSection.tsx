@@ -69,7 +69,7 @@ export default function OverviewSection() {
       value: pendingReservations.data?.totalItems,
       icon: CalendarClock,
       tone: "primary",
-      to: "/admin/reservas?estado=pendiente",
+      to: "/admin/reservas?estado=solicitada",
     },
     {
       label: "Cuentas sin activar",

@@ -1,17 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, m } from "motion/react";
-import { CalendarClock, CircleAlert, Ellipsis, Plus } from "lucide-react";
+import { CalendarClock, Ellipsis, Plus } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 
 import { errorMessage, toApiError } from "@/api/errors";
 import { listMyVehicles, setVehicleActive } from "@/api/wheelby.api";
 import EmptyState from "@/components/custom/EmptyState";
+import { SectionError } from "@/components/custom/ErrorStates";
+import {
+  ReservationListSkeleton,
+  Skeleton,
+} from "@/components/custom/Skeletons";
 import { CarIllustration } from "@/components/custom/Illustrations";
 import Pagination from "@/components/custom/Pagination";
 import VehicleImage from "@/features/marketplace/vehicle/VehicleImage";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +35,7 @@ import {
   type Reservation,
   type Vehicle,
 } from "@/types/types";
+import HostSubnav from "../components/HostSubnav";
 import { useHostReservations } from "../useHostReservations";
 import type { VehicleSavedState } from "./VehicleFormPage";
 
@@ -85,6 +90,7 @@ export default function MyVehiclesPage() {
   return (
     <main className="px-gutter pt-6 pb-16">
       <div className="mx-auto grid max-w-240 grid-cols-1 gap-6">
+        <HostSubnav />
         {saved && (
           <SuccessBanner>
             {saved.created
@@ -113,39 +119,12 @@ export default function MyVehiclesPage() {
         </m.header>
 
         {vehicles.isPending ? (
-          <ul
-            className="grid grid-cols-1 gap-3"
-            aria-busy="true"
-            aria-label="Cargando vehículos"
-          >
-            {[0, 1, 2].map((i) => (
-              <li
-                key={i}
-                className="flex animate-pulse gap-4 rounded-[18px] border border-border-soft p-4"
-              >
-                <div className="aspect-4/3 w-32 rounded-xl bg-secondary" />
-                <div className="grid flex-1 content-center gap-2">
-                  <div className="h-4 w-1/3 rounded-full bg-secondary" />
-                  <div className="h-3 w-1/4 rounded-full bg-secondary" />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <ReservationListSkeleton />
         ) : vehicles.isError ? (
-          <Alert variant="destructive">
-            <CircleAlert />
-            <AlertDescription>
-              {errorMessage(vehicles.error)}
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 rounded-full"
-                onClick={() => vehicles.refetch()}
-              >
-                Reintentar
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <SectionError
+            error={vehicles.error}
+            onRetry={() => vehicles.refetch()}
+          />
         ) : vehicles.data.items.length === 0 ? (
           <EmptyState
             illustration={<CarIllustration className="w-37.5" />}
@@ -276,7 +255,7 @@ function VehicleRow({
             <span className="inline-flex items-center gap-1.5">
               <CalendarClock className="size-4" strokeWidth={1.75} />
               {!countsReady ? (
-                <span className="inline-block h-3 w-24 animate-pulse rounded-full bg-secondary" />
+                <Skeleton className="inline-block h-3 w-24 rounded-full" />
               ) : upcoming === 0 ? (
                 "Sin reservas próximas"
               ) : (

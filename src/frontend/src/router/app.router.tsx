@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router";
 
+import OfflineBanner from "@/components/custom/OfflineBanner";
 import MotionRoot from "@/components/layout/MotionRoot";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import ScrollToTop from "@/components/layout/ScrollToTop";
@@ -8,12 +9,15 @@ import { LoginPage } from "@/features/auth/login/LoginPage";
 import { RecoverPage } from "@/features/auth/recover/RecoverPage";
 import { RegisterPage } from "@/features/auth/register/RegisterPage";
 import AuthLayout from "@/features/auth/shared/layout/AuthLayout";
+import { NotFoundPage } from "@/features/errors/ErrorPages";
+import RouteError from "@/features/errors/RouteError";
 import {
   AdminPage,
   AppLayout,
   CatalogPage,
   HostReservationsPage,
   HostRoute,
+  LegalPage,
   MyVehiclesPage,
   ProfilePage,
   VehicleFormPage,
@@ -30,10 +34,20 @@ export const router = createBrowserRouter([
     element: (
       <MotionRoot>
         <ScrollToTop />
+        <OfflineBanner />
         <Outlet />
       </MotionRoot>
     ),
+    // Un error inesperado al pintar cualquier ruta: página de error con reintento.
+    errorElement: (
+      <MotionRoot>
+        <RouteError />
+      </MotionRoot>
+    ),
     children: [
+      // Públicas para todos (con o sin sesión): textos legales.
+      { path: "terminos", element: <LegalPage doc="terminos" /> },
+      { path: "privacidad", element: <LegalPage doc="privacidad" /> },
       // Públicas: solo las páginas de acceso.
       {
         path: "/auth",
@@ -80,6 +94,8 @@ export const router = createBrowserRouter([
               },
               // Lo ven las dos partes de la reserva y el Administrador.
               { path: "reservas/:id", element: <ReservationPage /> },
+              // Cualquier otra ruta: 404 dentro del layout, con el header visible.
+              { path: "*", element: <NotFoundPage /> },
               { path: "perfil/*", element: <ProfilePage /> },
             ],
           },
@@ -88,7 +104,6 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute requireAdmin />,
             children: [{ path: "admin/*", element: <AdminPage /> }],
           },
-          { path: "*", element: <Navigate to="/" replace /> },
         ],
       },
     ],

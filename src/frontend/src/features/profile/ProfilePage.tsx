@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutDashboard } from "lucide-react";
 import { m } from "motion/react";
 import {
   Link,
@@ -128,6 +128,16 @@ function ProfileIndex() {
         Perfil
       </h1>
       <ProfileIdentity />
+      {isAdmin(user) && (
+        <Link
+          to="/admin"
+          className="mt-5 flex h-14 items-center gap-3 rounded-2xl bg-primary-soft px-4 font-semibold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <LayoutDashboard className="size-5" strokeWidth={1.75} />
+          Panel de administración
+          <ChevronRight className="ml-auto size-4" />
+        </Link>
+      )}
       <nav aria-label="Secciones del perfil" className="mt-6">
         <ul className="divide-y divide-border-soft border-y border-border-soft">
           {sections.map(({ id, label, description, icon: Icon }) => (

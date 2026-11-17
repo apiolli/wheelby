@@ -14,7 +14,10 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
-import { ERROR_CODES, toApiError } from "@/api/errors";
+import { errorCode, ERROR_CODES, toApiError } from "@/api/errors";
+import { PageError } from "@/components/custom/ErrorStates";
+import { VehicleDetailSkeleton } from "@/components/custom/Skeletons";
+import { NotFoundPage } from "@/features/errors/ErrorPages";
 import { requestReservation } from "@/api/wheelby.api";
 import EmptyState from "@/components/custom/EmptyState";
 import { CarIllustration } from "@/components/custom/Illustrations";
@@ -53,7 +56,14 @@ export default function ReservePage() {
   const [params, setParams] = useSearchParams();
   const search = readSearch(params);
   const user = useSession((s) => s.user)!;
-  const { vehicle, isPending, unreachable, rate } = useVehicle(vehiculoId);
+  const {
+    vehicle,
+    isPending,
+    unreachable,
+    rate,
+    error: vehicleError,
+    refetch: refetchVehicle,
+  } = useVehicle(vehiculoId);
   const { blocked } = useBlockedDays(vehicle?.id);
 
   const [datesOpen, setDatesOpen] = useState(false);
@@ -137,34 +147,12 @@ export default function ReservePage() {
         />
       </Centered>
     );
-  if (!vehicle)
-    return isPending ? (
-      <main className="mx-auto max-w-280 px-gutter py-12" aria-busy="true">
-        <div className="grid animate-pulse gap-10 lg:grid-cols-[1fr_400px]">
-          <div className="h-96 rounded-[20px] bg-secondary" />
-          <div className="h-80 rounded-[20px] bg-secondary" />
-        </div>
-      </main>
-    ) : (
-      <Centered>
-        <EmptyState
-          illustration={<CarIllustration className="w-37.5" />}
-          title="Este vehículo no está disponible"
-          text="Puede que ya no exista. Busca otro en el catálogo."
-          action={
-            <Link
-              to="/buscar"
-              className={buttonVariants({
-                size: "lg",
-                className: "rounded-full",
-              })}
-            >
-              Explorar vehículos
-            </Link>
-          }
-        />
-      </Centered>
-    );
+  if (!vehicle) {
+    if (isPending) return <VehicleDetailSkeleton />;
+    if (errorCode(vehicleError) === ERROR_CODES.vehicleNotFound)
+      return <NotFoundPage />;
+    return <PageError error={vehicleError} onRetry={() => refetchVehicle()} />;
+  }
 
   const back = `/vehiculos/${vehicle.id}${searchQueryString(search)}`;
 

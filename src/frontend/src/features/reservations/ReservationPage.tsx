@@ -1,13 +1,16 @@
 import { m } from "motion/react";
-import { ChevronLeft, CircleAlert, Star } from "lucide-react";
+import { ChevronLeft, Star } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router";
 
-import { errorMessage, toApiError } from "@/api/errors";
-import EmptyState from "@/components/custom/EmptyState";
-import { CalendarIllustration } from "@/components/custom/Illustrations";
+import { toApiError } from "@/api/errors";
+import { PageError } from "@/components/custom/ErrorStates";
+import {
+  Loading,
+  Skeleton,
+  TimelineSkeleton,
+} from "@/components/custom/Skeletons";
+import { NotFoundPage } from "@/features/errors/ErrorPages";
 import { ReservationStatusBadge } from "@/components/custom/StatusBadges";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button, buttonVariants } from "@/components/ui/button";
 import StarRating from "@/features/marketplace/vehicle/components/StarRating";
 import { features } from "@/lib/features";
 import { formatDate, shortId } from "@/lib/format";
@@ -43,44 +46,12 @@ export default function ReservationPage() {
   if (reservation.isError) {
     const status = toApiError(reservation.error).status;
     // 404 también para reservas ajenas: no se revela si existen.
-    if (status === 404 || status === 403)
-      return (
-        <Centered>
-          <EmptyState
-            illustration={<CalendarIllustration className="w-37.5" />}
-            title="No encontramos esta reserva"
-            text="Puede que no exista o que no participes en ella."
-            action={
-              <Link
-                to={admin ? "/admin/reservas" : "/perfil/reservas"}
-                className={buttonVariants({
-                  size: "lg",
-                  className: "rounded-full",
-                })}
-              >
-                {admin ? "Ver todas las reservas" : "Ir a mis reservas"}
-              </Link>
-            }
-          />
-        </Centered>
-      );
+    if (status === 404 || status === 403) return <NotFoundPage />;
     return (
-      <Centered>
-        <Alert variant="destructive">
-          <CircleAlert />
-          <AlertDescription>
-            {errorMessage(reservation.error)}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3 rounded-full"
-              onClick={() => reservation.refetch()}
-            >
-              Reintentar
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </Centered>
+      <PageError
+        error={reservation.error}
+        onRetry={() => reservation.refetch()}
+      />
     );
   }
 
@@ -149,7 +120,7 @@ export default function ReservationPage() {
                 Línea de tiempo
               </h2>
               {features.reservationHistory && history.isPending ? (
-                <div className="h-48 animate-pulse rounded-2xl bg-secondary" />
+                <TimelineSkeleton />
               ) : (
                 <m.div
                   initial={{ opacity: 0 }}
@@ -264,31 +235,16 @@ function ReviewItem({ review, mine }: { review: Review; mine: boolean }) {
   );
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
-  return <main className="mx-auto max-w-160 px-gutter py-12">{children}</main>;
-}
-
 function DetailSkeleton() {
   return (
-    <main
-      className="px-gutter pt-12 pb-16"
-      aria-busy="true"
-      aria-label="Cargando reserva"
-    >
-      <div className="mx-auto grid max-w-280 animate-pulse gap-8">
-        <div className="h-9 w-72 rounded-full bg-secondary" />
+    <Loading label="Cargando reserva" className="px-gutter pt-12 pb-16">
+      <div className="mx-auto grid max-w-280 gap-8">
+        <Skeleton className="h-9 w-72 rounded-full" />
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14">
-          <div className="grid gap-5">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="size-6 rounded-full bg-secondary" />
-                <div className="h-4 w-40 rounded-full bg-secondary" />
-              </div>
-            ))}
-          </div>
-          <div className="h-80 rounded-[20px] bg-secondary" />
+          <TimelineSkeleton />
+          <Skeleton className="h-80 rounded-[20px]" />
         </div>
       </div>
-    </main>
+    </Loading>
   );
 }

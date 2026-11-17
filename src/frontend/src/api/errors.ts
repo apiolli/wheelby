@@ -8,6 +8,8 @@ interface ProblemDetails {
   errors?: Record<string, string[]>;
   // Código estable del backend (p. ej. "vehicle.overlap"): se decide con él, no con el texto.
   code?: string;
+  // Identificador de la traza del servidor, para reportar el error.
+  traceId?: string;
 }
 
 export interface ApiError {
@@ -16,6 +18,9 @@ export interface ApiError {
   code: string | null;
   // Errores por campo de una validación (400), con el nombre del campo en minúsculas.
   fields: Record<string, string>;
+  traceId: string | null;
+  // Sin respuesta del servidor (red caída o servidor inalcanzable).
+  offline: boolean;
 }
 
 const NETWORK_MESSAGE =
@@ -26,9 +31,23 @@ const GENERIC_MESSAGE = "Algo salió mal. Inténtalo de nuevo en unos minutos.";
 // mensajes de la API ya vienen en español; si es un error de validación, se toma el primero.
 export function toApiError(error: unknown): ApiError {
   if (!isAxiosError(error))
-    return { status: null, message: GENERIC_MESSAGE, code: null, fields: {} };
+    return {
+      status: null,
+      message: GENERIC_MESSAGE,
+      code: null,
+      fields: {},
+      traceId: null,
+      offline: false,
+    };
   if (!error.response)
-    return { status: null, message: NETWORK_MESSAGE, code: null, fields: {} };
+    return {
+      status: null,
+      message: NETWORK_MESSAGE,
+      code: null,
+      fields: {},
+      traceId: null,
+      offline: true,
+    };
 
   const { status, data } = error.response;
   const problem = (data ?? {}) as ProblemDetails;
@@ -45,6 +64,8 @@ export function toApiError(error: unknown): ApiError {
     message: firstFieldError ?? problem.detail ?? GENERIC_MESSAGE,
     code: problem.code ?? null,
     fields,
+    traceId: problem.traceId ?? null,
+    offline: false,
   };
 }
 
