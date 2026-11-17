@@ -8,7 +8,16 @@ import { LoginPage } from "@/features/auth/login/LoginPage";
 import { RecoverPage } from "@/features/auth/recover/RecoverPage";
 import { RegisterPage } from "@/features/auth/register/RegisterPage";
 import AuthLayout from "@/features/auth/shared/layout/AuthLayout";
-import { AdminPage, AppLayout, CatalogPage, ProfilePage } from "./pages";
+import {
+  AdminPage,
+  AppLayout,
+  CatalogPage,
+  ProfilePage,
+  ReservationPage,
+  ReservePage,
+  SearchPage,
+  VehiclePage,
+} from "./pages";
 
 // Navegación por URL: cada pantalla, sección, filtro, página y diálogo vive en la ruta o en su
 // query string, así que todo se puede enlazar, recargar y recorrer con atrás/adelante.
@@ -43,8 +52,15 @@ export const router = createBrowserRouter([
               // El catálogo es solo del rol Estándar: el Administrador va a su panel.
               {
                 element: <ProtectedRoute requireStandard />,
-                children: [{ index: true, element: <CatalogPage /> }],
+                children: [
+                  { index: true, element: <CatalogPage /> },
+                  { path: "buscar", element: <SearchPage /> },
+                  { path: "vehiculos/:id", element: <VehiclePage /> },
+                  { path: "reservar/:vehiculoId", element: <ReservePage /> },
+                ],
               },
+              // Lo ven las dos partes de la reserva y el Administrador.
+              { path: "reservas/:id", element: <ReservationPage /> },
               { path: "perfil/*", element: <ProfilePage /> },
             ],
           },

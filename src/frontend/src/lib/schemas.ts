@@ -66,11 +66,12 @@ export const changePasswordSchema = z
 
 // Mínimo del motivo que acompaña un rechazo o una cancelación del anfitrión.
 export const MIN_REASON = 10;
+export const MAX_REASON = 500;
 export const reasonSchema = z
   .string()
   .trim()
   .min(MIN_REASON, `Escribe al menos ${MIN_REASON} caracteres.`)
-  .max(500, "El motivo no puede pasar de 500 caracteres.");
+  .max(MAX_REASON, `El motivo no puede pasar de ${MAX_REASON} caracteres.`);
 
 const CURRENT_YEAR = new Date().getFullYear();
 

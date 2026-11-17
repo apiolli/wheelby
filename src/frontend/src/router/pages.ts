@@ -8,3 +8,15 @@ export const CatalogPage = lazy(
 );
 export const ProfilePage = lazy(() => import("@/features/profile/ProfilePage"));
 export const AdminPage = lazy(() => import("@/features/admin/AdminPage"));
+export const SearchPage = lazy(
+  () => import("@/features/marketplace/search/SearchPage"),
+);
+export const VehiclePage = lazy(
+  () => import("@/features/marketplace/vehicle/VehiclePage"),
+);
+export const ReservePage = lazy(
+  () => import("@/features/marketplace/reserve/ReservePage"),
+);
+export const ReservationPage = lazy(
+  () => import("@/features/reservations/ReservationPage"),
+);

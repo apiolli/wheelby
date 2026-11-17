@@ -3,7 +3,11 @@ import type {
   PagedResult,
   PermissionRequest,
   Reservation,
+  ReservationDocument,
+  ReservationStatusChange,
+  Review,
   Vehicle,
+  VehicleAvailability,
 } from "@/types/types";
 import { wheelbyApi } from "./wheelby-api";
 
@@ -22,6 +26,30 @@ export interface AvailabilityQuery {
 export const searchAvailable = (q: AvailabilityQuery) =>
   wheelbyApi
     .get<PagedResult<Vehicle>>("/vehicles/available", { params: q })
+    .then((r) => r.data);
+
+// P1: ficha por URL directa. Siempre en DOP (la conversión solo viene en la búsqueda).
+export const getVehicle = (id: string) =>
+  wheelbyApi.get<Vehicle>(`/vehicles/${id}`).then((r) => r.data);
+
+// P1: rangos bloqueados (Confirmed e InProgress) entre dos instantes.
+export const getAvailability = (id: string, from: string, to: string) =>
+  wheelbyApi
+    .get<VehicleAvailability>(`/vehicles/${id}/availability`, {
+      params: { from, to },
+    })
+    .then((r) => r.data);
+
+// P4: reseñas de inquilinos sobre el vehículo.
+export const listVehicleReviews = (
+  id: string,
+  page: number,
+  pageSize: number,
+) =>
+  wheelbyApi
+    .get<PagedResult<Review>>(`/vehicles/${id}/reviews`, {
+      params: { page, pageSize },
+    })
     .then((r) => r.data);
 
 export interface PublishVehicleInput {
@@ -56,6 +84,52 @@ export const listMyReservations = (
   wheelbyApi
     .get<PagedResult<Reservation>>("/reservations/mine", {
       params: { as, page, pageSize },
+    })
+    .then((r) => r.data);
+
+// El Administrador no entra al grupo /reservations: lee lo mismo bajo /admin/reservations.
+const reservationBase = (id: string, admin: boolean) =>
+  `${admin ? "/admin/reservations" : "/reservations"}/${id}`;
+
+// P1: detalle (participantes y Administrador; para otro, 404).
+export const getReservation = (id: string, admin = false) =>
+  wheelbyApi.get<Reservation>(reservationBase(id, admin)).then((r) => r.data);
+
+// P3: línea de tiempo de estados.
+export const getReservationHistory = (id: string, admin = false) =>
+  wheelbyApi
+    .get<ReservationStatusChange[]>(`${reservationBase(id, admin)}/history`)
+    .then((r) => r.data);
+
+// P3: documentos de entrega y devolución.
+export const listReservationDocuments = (id: string, admin = false) =>
+  wheelbyApi
+    .get<ReservationDocument[]>(`${reservationBase(id, admin)}/documents`)
+    .then((r) => r.data);
+
+export async function downloadReservationDocument(
+  reservationId: string,
+  doc: ReservationDocument,
+  admin = false,
+) {
+  const { data } = await wheelbyApi.get<Blob>(
+    `${reservationBase(reservationId, admin)}/documents/${doc.documentId}/content`,
+    { responseType: "blob" },
+  );
+  saveBlob(data, doc.fileName ?? "documento");
+}
+
+// P4: reseñas de la reserva (las dos partes) y publicar la propia.
+export const listReservationReviews = (id: string, admin = false) =>
+  wheelbyApi
+    .get<Review[]>(`${reservationBase(id, admin)}/reviews`)
+    .then((r) => r.data);
+
+export const createReview = (id: string, rating: number, comment: string) =>
+  wheelbyApi
+    .post<{ id: string }>(`/reservations/${id}/reviews`, {
+      rating,
+      comment: comment.trim() || null,
     })
     .then((r) => r.data);
 
@@ -113,10 +187,14 @@ export async function downloadDocument(doc: DocumentSummary) {
   const { data } = await wheelbyApi.get<Blob>(`/documents/${doc.id}/content`, {
     responseType: "blob",
   });
+  saveBlob(data, doc.fileName);
+}
+
+function saveBlob(data: Blob, fileName: string) {
   const url = URL.createObjectURL(data);
   const a = document.createElement("a");
   a.href = url;
-  a.download = doc.fileName;
+  a.download = fileName;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

@@ -63,8 +63,12 @@ export default function ReservationsSection() {
         id={`cancel-${r.id}`}
         optional
         trigger={
-          <Button variant="destructive-outline" size="sm">
-            Cancelar reserva
+          <Button
+            variant="destructive-outline"
+            size="sm"
+            className="rounded-full"
+          >
+            Cancelar
           </Button>
         }
         title="¿Cancelar esta reserva?"
@@ -101,10 +105,16 @@ export default function ReservationsSection() {
       ) : items.length === 0 ? (
         <EmptyState
           illustration={<CalendarIllustration className="w-37.5" />}
-          title="Aún no tienes reservas"
+          title="Aún no has hecho ninguna reserva."
           text="Cuando reserves un vehículo, aparecerá aquí con sus fechas y su estado."
           action={
-            <Link to="/" className={buttonVariants({ size: "lg" })}>
+            <Link
+              to="/buscar"
+              className={buttonVariants({
+                size: "lg",
+                className: "rounded-full",
+              })}
+            >
               Explorar vehículos
             </Link>
           }

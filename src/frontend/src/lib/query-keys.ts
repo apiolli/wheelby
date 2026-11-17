@@ -3,6 +3,14 @@ import type { ReservationStatus } from "@/types/types";
 // Claves de TanStack Query, en un solo lugar para invalidar sin errores de tecleo.
 export const queryKeys = {
   available: (q: object) => ["vehicles", "available", q] as const,
+  vehicle: (id: string) => ["vehicles", id] as const,
+  availability: (id: string, from: string, to: string) =>
+    ["vehicles", id, "availability", from, to] as const,
+  vehicleReviews: (id: string) => ["vehicles", id, "reviews"] as const,
+  // Todo lo de una reserva cuelga de esta clave: invalidarla refresca detalle, historial, etc.
+  reservation: (id: string) => ["reservation", id] as const,
+  reservationPart: (id: string, part: string) =>
+    ["reservation", id, part] as const,
   myReservations: (as: string, page?: number) =>
     page === undefined
       ? (["reservations", "mine", as] as const)

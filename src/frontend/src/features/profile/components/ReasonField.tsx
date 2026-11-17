@@ -1,6 +1,6 @@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MIN_REASON } from "@/lib/schemas";
+import { MAX_REASON, MIN_REASON } from "@/lib/schemas";
 
 interface ReasonFieldProps {
   id: string;
@@ -38,20 +38,32 @@ export default function ReasonField({
         aria-invalid={Boolean(error) || undefined}
         aria-describedby={`${id}-hint`}
       />
-      <p
-        id={`${id}-hint`}
-        className={
-          error
-            ? "text-[12.5px] text-destructive"
-            : "text-[12.5px] text-muted-foreground"
-        }
-      >
-        {error ??
-          note ??
-          (optional
-            ? "Máximo 500 caracteres."
-            : `Escribe al menos ${MIN_REASON} caracteres.`)}
-      </p>
+      <div className="flex justify-between gap-3">
+        <p
+          id={`${id}-hint`}
+          className={
+            error
+              ? "text-[12.5px] text-destructive"
+              : "text-[12.5px] text-muted-foreground"
+          }
+        >
+          {error ??
+            note ??
+            (optional
+              ? "Máximo 500 caracteres."
+              : `Escribe al menos ${MIN_REASON} caracteres.`)}
+        </p>
+        <p
+          aria-live="polite"
+          className={
+            value.length > MAX_REASON
+              ? "shrink-0 text-[12.5px] text-destructive tabular-nums"
+              : "shrink-0 text-[12.5px] text-muted-foreground tabular-nums"
+          }
+        >
+          {value.length}/{MAX_REASON}
+        </p>
+      </div>
     </div>
   );
 }

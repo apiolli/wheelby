@@ -70,13 +70,15 @@ function MemberHeader({ user }: { user: User }) {
   const [focusField, setFocusField] = useState<SearchField | null>(null);
   const expandedAtY = useRef(0);
 
-  // El borrador de la búsqueda se reinicia cuando cambia la búsqueda de la URL (en el catálogo).
-  const urlKey = pathname === "/" ? params.toString() : "";
+  // El borrador de la búsqueda se reinicia cuando cambia la búsqueda de la URL (en el catálogo
+  // y en los resultados).
+  const onSearchPage = pathname === "/" || pathname === "/buscar";
+  const urlKey = onSearchPage ? params.toString() : "";
   const [synced, setSynced] = useState(urlKey);
   const [query, setQuery] = useState<SearchQuery>(() => queryFrom(params));
   if (urlKey !== synced) {
     setSynced(urlKey);
-    if (pathname === "/") setQuery(queryFrom(params));
+    if (onSearchPage) setQuery(queryFrom(params));
   }
 
   // Sombra progresiva ligada al scroll, sin renders de React.
@@ -131,7 +133,7 @@ function MemberHeader({ user }: { user: User }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  // La búsqueda lleva al catálogo con las fechas y la moneda en la URL.
+  // La búsqueda lleva a los resultados con las fechas y la moneda en la URL.
   const submit = (q: SearchQuery) => {
     const range = rangeSchema.safeParse(q);
     if (!range.success) {
@@ -139,7 +141,7 @@ function MemberHeader({ user }: { user: User }) {
       return;
     }
     collapse();
-    navigate({ pathname: "/", search: `?${toSearchParams(q)}` });
+    navigate({ pathname: "/buscar", search: `?${toSearchParams(q)}` });
   };
 
   const userMenu = <UserMenu user={user} />;
