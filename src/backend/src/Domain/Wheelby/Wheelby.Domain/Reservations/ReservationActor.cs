@@ -7,5 +7,8 @@ namespace Wheelby.Domain.Reservations;
 public enum ReservationActor
 {
     Renter = 0,
-    Host = 1
+    Host = 1,
+
+    // La plataforma, sin un usuario detrás: el job que expira solicitudes vencidas.
+    System = 2
 }

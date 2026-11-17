@@ -45,6 +45,12 @@ internal sealed class ReservationConfiguration : IEntityTypeConfiguration<Reserv
         builder.HasIndex(r => r.VehicleId);
         builder.HasIndex(r => r.RenterId);
 
+        builder.HasMany(r => r.History)
+            .WithOne()
+            .HasForeignKey(h => h.ReservationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(r => r.History).UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.Ignore(r => r.DomainEvents);
     }
 }

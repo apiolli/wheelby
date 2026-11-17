@@ -36,7 +36,7 @@ internal sealed class CancelReservationCommandHandler(
 
         var actor = isRenter ? ReservationActor.Renter : ReservationActor.Host;
 
-        reservation.TransitionTo(ReservationStatus.Cancelled, actor, clock.UtcNow, command.Reason);
+        reservation.TransitionTo(ReservationStatus.Cancelled, actor, clock.UtcNow, command.Reason, actorId: currentUser.Id);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Unit.Value;

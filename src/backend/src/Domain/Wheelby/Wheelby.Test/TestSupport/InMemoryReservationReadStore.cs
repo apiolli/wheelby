@@ -38,4 +38,18 @@ public sealed class InMemoryReservationReadStore : IReservationReadStore
     }
 
     public void Agregar(ReservationSummaryDTO reserva) => _reservas.Add(reserva);
+
+    public List<ReservationStatusChangeDTO> Historial { get; } = [];
+    public List<(Guid ReservationId, ReservationDocumentDTO Documento)> Documentos { get; } = [];
+    public List<ReviewDTO> Resenas { get; } = [];
+
+    public Task<IReadOnlyList<ReservationStatusChangeDTO>> ListHistoryAsync(Guid reservationId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<ReservationStatusChangeDTO>>(Historial);
+
+    public Task<IReadOnlyList<ReservationDocumentDTO>> ListDocumentsAsync(Guid reservationId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<ReservationDocumentDTO>>(
+            Documentos.Where(d => d.ReservationId == reservationId).Select(d => d.Documento).ToList());
+
+    public Task<IReadOnlyList<ReviewDTO>> ListReviewsAsync(Guid reservationId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<ReviewDTO>>(Resenas.Where(r => r.ReservationId == reservationId).ToList());
 }

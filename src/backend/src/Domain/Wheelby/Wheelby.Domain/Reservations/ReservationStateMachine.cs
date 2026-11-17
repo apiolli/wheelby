@@ -14,7 +14,8 @@ public static class ReservationStateMachine
         string Condition,
         Func<Reservation, ReservationActor, DateTime, string?, bool>? Guard);
 
-    // Las cinco transiciones permitidas.
+    // Las cinco transiciones permitidas. Pending → Cancelled la ejecutan también el
+    // sistema (expiración), con su propia guarda: el par sigue siendo una sola fila.
     public static readonly IReadOnlyList<TransitionDefinition> AllowedTransitions =
     [
         new(
@@ -27,11 +28,13 @@ public static class ReservationStateMachine
         new(
             ReservationStatus.Pending,
             ReservationStatus.Cancelled,
-            new HashSet<ReservationActor> { ReservationActor.Renter, ReservationActor.Host },
-            "Motivo obligatorio si cancela el anfitrión; solo antes del inicio.",
-            static (r, actor, utcNow, reason) =>
-                utcNow < r.StartDate
-                && (actor == ReservationActor.Renter || !string.IsNullOrWhiteSpace(reason))),
+            new HashSet<ReservationActor> { ReservationActor.Renter, ReservationActor.Host, ReservationActor.System },
+            "Motivo obligatorio si cancela el anfitrión; solo antes del inicio. "
+                + "El sistema expira la solicitud cuando llega su inicio sin confirmar.",
+            static (r, actor, utcNow, reason) => actor == ReservationActor.System
+                ? utcNow >= r.StartDate
+                : utcNow < r.StartDate
+                    && (actor == ReservationActor.Renter || !string.IsNullOrWhiteSpace(reason))),
 
         new(
             ReservationStatus.Confirmed,

@@ -27,6 +27,9 @@ internal sealed class RequestReservationCommandHandler(
         if (vehicle.OwnerId == currentUser.Id)
             throw new ForbiddenException("No puedes reservar tu propio vehículo.", WheelbyErrorCodes.ReservationOwnVehicle);
 
+        if (!vehicle.IsActive)
+            throw new ConflictException("El vehículo no está disponible para reservar.", WheelbyErrorCodes.VehicleInactive);
+
         // Solo Confirmed e InProgress bloquean el calendario.
         var hasOverlap = await reservations.HasBlockingOverlapAsync(
             command.VehicleId,

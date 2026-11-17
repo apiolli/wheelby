@@ -34,4 +34,28 @@ internal sealed class ReservationRepository(WheelbyDbContext db) : IReservationR
 
         return query.AnyAsync(cancellationToken);
     }
+
+    public Task<bool> HasBlockingReservationsAsync(Guid vehicleId, CancellationToken cancellationToken)
+    {
+        var blocking = BlockingReservationStates.States.ToArray();
+        return db.Reservations.AnyAsync(r => r.VehicleId == vehicleId && blocking.Contains(r.Status), cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Reservation>> ListExpiredPendingAsync(
+        DateTime utcNow, int take, CancellationToken cancellationToken)
+        => await db.Reservations
+            .Where(r => r.Status == ReservationStatus.Pending && r.StartDate <= utcNow)
+            .OrderBy(r => r.StartDate).ThenBy(r => r.Id)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+    public Task<int> CountDocumentsAsync(Guid reservationId, CancellationToken cancellationToken)
+        => db.ReservationDocuments.CountAsync(d => d.ReservationId == reservationId, cancellationToken);
+
+    public Task<bool> DocumentAttachedAsync(Guid reservationId, Guid documentId, CancellationToken cancellationToken)
+        => db.ReservationDocuments.AnyAsync(
+            d => d.ReservationId == reservationId && d.DocumentId == documentId, cancellationToken);
+
+    public Task AddDocumentAsync(ReservationDocument document, CancellationToken cancellationToken)
+        => db.ReservationDocuments.AddAsync(document, cancellationToken).AsTask();
 }

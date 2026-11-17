@@ -650,6 +650,7 @@ Todas se definen en **`.env`** (copia de `.env.example`). Ningún valor real est
 | `Admin__Email`, `Admin__Password` | **Sí** | Administrador fijo (rol `Administrator`), que la API crea al arrancar. Contraseña de 8+ caracteres, con letras y números | API |
 | `Smtp__Host`, `Smtp__Port`, `Smtp__User`, `Smtp__Password`, `Smtp__From` | Para que lleguen los correos | Servidor de correo saliente (587, STARTTLS). Las credenciales reales van en el comentario de Moodle | Worker |
 | `Worker__IntervalSeconds` | No (10, mínimo 1) | Segundos entre vueltas del Worker | Worker |
+| `Worker__ReservationExpiryIntervalSeconds` | No (300, mínimo 10) | Segundos entre pasadas que expiran solicitudes `Pending` vencidas | Worker |
 | `Documents__MaxFileSizeBytes` | No (10485760 = 10 MB) | Tamaño máximo de cada documento | API |
 | `Documents__StoragePath` | No (la imagen usa `/app/data/documents`) | Carpeta de los documentos, dentro del volumen `wheelby-documents` | API |
 | `ExchangeRate__ApiKey` | No | Clave de ExchangeRate-API. Sin ella, solo la búsqueda con `currency` responde 503 | API |

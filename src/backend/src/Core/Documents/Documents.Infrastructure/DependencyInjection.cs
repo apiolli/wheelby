@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IDocumentReadStore, DocumentReadStore>();
         services.AddScoped<IDocumentsUnitOfWork, DocumentsUnitOfWork>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
+        services.AddScoped<Documents.Contracts.IDocumentAccess, DocumentAccess>();
 
         return services;
     }

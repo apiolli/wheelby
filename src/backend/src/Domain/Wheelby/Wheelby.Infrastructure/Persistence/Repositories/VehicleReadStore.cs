@@ -13,6 +13,8 @@ internal sealed class VehicleReadStore(WheelbyDbContext db) : IVehicleReadStore
         DateTime from,
         DateTime to,
         Guid excludeOwnerId,
+        string? city,
+        VehicleType? type,
         int page,
         int pageSize,
         CancellationToken cancellationToken)
@@ -22,13 +24,23 @@ internal sealed class VehicleReadStore(WheelbyDbContext db) : IVehicleReadStore
 
         var query = db.Vehicles
             .AsNoTracking()
-            .Where(v => v.OwnerId != excludeOwnerId
+            .Where(v => v.IsActive
+                && v.OwnerId != excludeOwnerId
                 && !db.Reservations
                     .Where(r => r.VehicleId == v.Id
                         && blocking.Contains(r.Status)
                         && from < r.EndDate
                         && to > r.StartDate)
                     .Any());
+
+        if (city is not null)
+        {
+            var normalizedCity = city.ToLower();
+            query = query.Where(v => v.City != null && v.City.ToLower() == normalizedCity);
+        }
+
+        if (type is not null)
+            query = query.Where(v => v.Type == type);
 
         return ToPageAsync(
             query.OrderBy(v => v.CreatedAt).ThenBy(v => v.Id),
@@ -51,6 +63,33 @@ internal sealed class VehicleReadStore(WheelbyDbContext db) : IVehicleReadStore
             .OrderByDescending(v => v.CreatedAt).ThenBy(v => v.Id);
 
         return ToPageAsync(query, page, pageSize, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<VehiclePhotoDTO>> ListPhotosAsync(Guid vehicleId, CancellationToken cancellationToken)
+        => await db.VehiclePhotos
+            .AsNoTracking()
+            .Where(p => p.VehicleId == vehicleId)
+            .OrderBy(p => p.AddedAt).ThenBy(p => p.Id)
+            .Select(p => new VehiclePhotoDTO(p.DocumentId, p.AddedAt))
+            .ToListAsync(cancellationToken);
+
+    public async Task<PagedResult<ReviewDTO>> ListReviewsAsync(
+        Guid vehicleId, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var query = db.Reviews
+            .AsNoTracking()
+            .Where(r => r.VehicleId == vehicleId && r.AuthorRole == ReservationActor.Renter);
+
+        var total = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(r => r.CreatedAt).ThenBy(r => r.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(r => new ReviewDTO(
+                r.Id, r.ReservationId, r.VehicleId, r.AuthorId, r.AuthorRole, r.SubjectId, r.Rating, r.Comment, r.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<ReviewDTO>(items, page, pageSize, total);
     }
 
     public async Task<IReadOnlyList<BlockedRangeDTO>> ListBlockedRangesAsync(
@@ -76,7 +115,7 @@ internal sealed class VehicleReadStore(WheelbyDbContext db) : IVehicleReadStore
     private static IQueryable<VehicleSummaryDTO> Project(IQueryable<Vehicle> query)
         => query.Select(v => new VehicleSummaryDTO(
             v.Id, v.OwnerId, v.Brand, v.Model, v.Year, v.Plate, v.PricePerDay, v.CreatedAt,
-            "DOP", null, null, null));
+            "DOP", null, null, null, v.Type, v.City, v.Description, v.IsActive));
 
     private static async Task<PagedResult<VehicleSummaryDTO>> ToPageAsync(
         IOrderedQueryable<Vehicle> query,

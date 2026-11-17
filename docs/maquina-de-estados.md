@@ -25,6 +25,7 @@ El rechazo del anfitrión es una cancelación con motivo obligatorio, en lugar d
 |---|---|
 | `Renter` | El inquilino que solicita la reserva. |
 | `Host` | El anfitrión, dueño del vehículo. Perfil de negocio de Wheelby, no un rol del Core. |
+| `System` | La plataforma, sin usuario detrás. Solo expira solicitudes vencidas (job del Worker). |
 
 La máquina verifica el **tipo** de actor. Comprobar que un usuario concreto es el dueño del vehículo o el inquilino de esa reserva será trabajo de los casos de uso (no incluido aquí).
 
@@ -35,12 +36,16 @@ La máquina verifica el **tipo** de actor. Comprobar que un usuario concreto es 
 | Desde | Hacia | Quién la ejecuta | Condición |
 |---|---|---|---|
 | `Pending` | `Confirmed` | `Host` | El anfitrión evaluó al inquilino (decisión humana, descriptiva). Guarda: `utcNow <= StartDate` (no confirmar algo ya vencido). |
-| `Pending` | `Cancelled` | `Renter`, `Host` | Motivo obligatorio si cancela el anfitrión; solo antes del inicio (`utcNow < StartDate`). |
+| `Pending` | `Cancelled` | `Renter`, `Host`, `System` | `Renter`/`Host`: motivo obligatorio si cancela el anfitrión; solo antes del inicio (`utcNow < StartDate`). `System`: expira la solicitud cuando llega su inicio sin confirmar (`utcNow >= StartDate`). |
 | `Confirmed` | `InProgress` | `Host` | El alquiler comienza; solo desde la fecha de inicio (`StartDate <= utcNow <= EndDate`). |
 | `Confirmed` | `Cancelled` | `Renter`, `Host` | Motivo obligatorio si cancela el anfitrión; solo antes del inicio (`utcNow < StartDate`). |
 | `InProgress` | `Completed` | `Host` | El alquiler terminó (`utcNow >= EndDate`). |
 
 Las comprobaciones con la fecha de inicio son guardas de cada transición (`Func` en la misma tabla). Los métodos de dominio reciben `utcNow` por parámetro (RD-11). Las fechas se comparan en UTC; la zona horaria del usuario se tratará en la interfaz.
+
+## Historial y avisos
+
+`Reservation.TransitionTo` agrega, además del cambio de `Status`, una fila a `ReservationStatusHistory` (desde, hacia, actor, usuario, motivo, momento) y el evento `ReservationStatusChanged`. `Reservation.Create` registra la fila inicial (`null → Pending`). Después de guardar, el evento se convierte en un correo para la contraparte de quien actuó (RF-NEG-07); si actúa `System`, a los dos.
 
 ## Transición explícitamente prohibida (RF-NEG-04)
 
@@ -70,7 +75,7 @@ Cualquier otra combinación fuera de la tabla también se rechaza. Si la máquin
 stateDiagram-v2
     [*] --> Pending
     Pending --> Confirmed : Host\nevaluó al inquilino
-    Pending --> Cancelled : Renter / Host\n(motivo si Host)
+    Pending --> Cancelled : Renter / Host\n(motivo si Host)\nSystem al vencer
     Confirmed --> InProgress : Host\ndesde StartDate
     Confirmed --> Cancelled : Renter / Host\n(motivo si Host)
     InProgress --> Completed : Host\ntras EndDate

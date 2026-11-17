@@ -36,7 +36,17 @@ internal sealed class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
             .IsRequired()
             .HasColumnType("numeric(12,2)");
 
+        builder.Property(v => v.Type)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(v => v.City).HasMaxLength(Vehicle.CityMaxLength);
+        builder.Property(v => v.Description).HasMaxLength(Vehicle.DescriptionMaxLength);
+        builder.Property(v => v.IsActive).IsRequired();
+
         builder.Property(v => v.CreatedAt).IsRequired();
+        builder.Property(v => v.UpdatedAt);
 
         builder.HasIndex(v => v.OwnerId);
 

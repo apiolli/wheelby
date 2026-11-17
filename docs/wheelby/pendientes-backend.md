@@ -1,6 +1,6 @@
 # Wheelby — Ajustes pendientes del backend (módulo de negocio)
 
-> Estado al 2026-11-17: Prioridad 1 y Prioridad 2 hechas, salvo la convención de fechas (pendiente de decisión). Prioridades 3 y 4 sin empezar.
+> Estado al 2026-11-17: Prioridades 1 a 4 hechas. Solo queda la convención de fechas (Prioridad 2), pendiente de decisión.
 
 Lista de cambios recomendados al módulo Wheelby, surgida de contrastar el diseño del frontend con la API actual. Está ordenada por prioridad. **Auditoría y reportes del Core no entran aquí:** están pendientes aparte y no se mezclan con este documento.
 
@@ -12,7 +12,7 @@ Estado de referencia: máquina de estados de reservas implementada (Pending, Con
 - [x] El solape se define como `start < r.EndDate && end > r.StartDate`: dos reservas consecutivas (una termina cuando empieza otra) no chocan. Solo Confirmed e InProgress bloquean.
 - [x] Los listados devuelven `PagedResult<T>(Items, Page, PageSize, TotalItems)`.
 - [x] Los errores de validación son por campo (`HttpValidationProblemDetails`) y todo `problem+json` lleva `traceId`.
-- [ ] Limitación conocida: dos confirmaciones **simultáneas** pueden pasar ambas la verificación. El cierre correcto es una restricción `EXCLUDE` de PostgreSQL (ver Prioridad 4).
+- [x] ~~Limitación conocida~~: dos confirmaciones **simultáneas** pueden pasar ambas la verificación. El cierre correcto es una restricción `EXCLUDE` de PostgreSQL (ver Prioridad 4). *Cerrada con la migración `NoBlockingOverlap`.*
 
 ## Prioridad 1 — el frontend no puede cerrar el flujo sin esto
 
@@ -32,17 +32,17 @@ Estado de referencia: máquina de estados de reservas implementada (Pending, Con
 
 ## Prioridad 3 — requisitos del negocio que hoy están vacíos
 
-- [ ] **Notificaciones por transición (RF-NEG-07).** Cada cambio de estado (solicitada, confirmada, rechazada, cancelada, iniciada, completada) publica un evento que el módulo de notificaciones convierte en correo. El Worker y la cola ya existen.
-- [ ] **Documentos adjuntos a la reserva (RF-NEG-10).** Tabla `ReservationDocuments(ReservationId, DocumentId, Kind)` con `Kind = Entrega | Devolución`. Reemplaza el módulo de inspecciones con una sola tabla y respeta RD-03: Documents no conoce Wheelby, Wheelby solo guarda los `DocumentId`.
-- [ ] **Historial de estados de la reserva.** `ReservationStatusHistory(ReservationId, From, To, ActorId, Reason, At)` solo como dato del negocio, para la línea de tiempo del detalle. No sustituye ni adelanta la auditoría del Core.
+- [x] **Notificaciones por transición (RF-NEG-07).** Cada cambio de estado (solicitada, confirmada, rechazada, cancelada, iniciada, completada) publica un evento que el módulo de notificaciones convierte en correo. El Worker y la cola ya existen. *Hecho: evento `ReservationStatusChanged` publicado tras guardar; el correo va a la contraparte de quien actuó (a los dos si actúa el sistema). Directorio de correos: `IUserDirectory` en AccessControl.Contracts. No es outbox transaccional (ver notas de diseño).*
+- [x] **Documentos adjuntos a la reserva (RF-NEG-10).** Tabla `ReservationDocuments(ReservationId, DocumentId, Kind)` con `Kind = Entrega | Devolución`. Reemplaza el módulo de inspecciones con una sola tabla y respeta RD-03: Documents no conoce Wheelby, Wheelby solo guarda los `DocumentId`. *Hecho: `POST/GET /reservations/{id}/documents` y `.../documents/{documentId}/content`. Solo documentos propios, en `Confirmed`, `InProgress` o `Completed`. Lectura vía `IDocumentAccess` (Documents.Contracts).*
+- [x] **Historial de estados de la reserva.** `ReservationStatusHistory(ReservationId, From, To, ActorId, Reason, At)` solo como dato del negocio, para la línea de tiempo del detalle. No sustituye ni adelanta la auditoría del Core. *Hecho: tabla `ReservationStatusHistory` escrita por `Reservation.TransitionTo`; `GET /reservations/{id}/history`. Las reservas previas se rellenan en la migración.*
 
 ## Prioridad 4 — si sobra tiempo
 
-- [ ] **Editar y desactivar vehículos:** `PUT /vehicles/{id}` e `IsActive`. Solo el dueño; placa única; no se puede desactivar con reservas Confirmed o InProgress.
-- [ ] **Más datos del vehículo:** `City`, `Type` (enum corto) y `Description`, con sus filtros en `GET /vehicles/available`.
-- [ ] **Fotos de vehículos.** `Document.CanBeAccessedBy` solo deja ver al dueño o al Administrador, así que un inquilino no vería las fotos. Solución sin tocar el Core: tabla `VehiclePhotos(VehicleId, DocumentId)` en Wheelby y `GET /vehicles/{id}/photos/{documentId}`, que valida la sesión y lee el archivo a través de una interfaz del módulo Documents.
-- [ ] **Expirar solicitudes.** Job del Worker que pase a Cancelled las reservas Pending cuya `StartDate` ya pasó (hoy `Confirm` exige `utcNow <= StartDate`, así que quedan colgadas).
-- [ ] **Restricción `EXCLUDE` en PostgreSQL** (requiere `btree_gist`) para cerrar la carrera entre confirmaciones simultáneas:
+- [x] **Editar y desactivar vehículos:** `PUT /vehicles/{id}` e `IsActive`. Solo el dueño; placa única; no se puede desactivar con reservas Confirmed o InProgress. *Hecho: `PUT /vehicles/{id}`, `POST /vehicles/{id}/deactivate` y `/activate`. Inactivo: fuera de la búsqueda y sin reservas ni confirmaciones nuevas.*
+- [x] **Más datos del vehículo:** `City`, `Type` (enum corto) y `Description`, con sus filtros en `GET /vehicles/available`. *Hecho: `Type` (`Car`, `Motorcycle`, `Bicycle`, `Scooter`, `Other`), `City` y `Description` opcionales; filtros `city` y `type`.*
+- [x] **Fotos de vehículos.** `Document.CanBeAccessedBy` solo deja ver al dueño o al Administrador, así que un inquilino no vería las fotos. Solución sin tocar el Core: tabla `VehiclePhotos(VehicleId, DocumentId)` en Wheelby y `GET /vehicles/{id}/photos/{documentId}`, que valida la sesión y lee el archivo a través de una interfaz del módulo Documents. *Hecho como se propuso, más `POST`/`DELETE` y listado. Máximo 10, solo imágenes propias.*
+- [x] **Expirar solicitudes.** Job del Worker que pase a Cancelled las reservas Pending cuya `StartDate` ya pasó (hoy `Confirm` exige `utcNow <= StartDate`, así que quedan colgadas). *Hecho: `ReservationExpiryWorker` en el Worker; actor `System` agregado a la fila `Pending → Cancelled` de la máquina (sigue habiendo 5 filas).*
+- [x] **Restricción `EXCLUDE` en PostgreSQL** (requiere `btree_gist`) para cerrar la carrera entre confirmaciones simultáneas: *Hecho: migración `NoBlockingOverlap`; la violación se traduce a 409 `vehicle.overlap`.*
 
   ```sql
   ALTER TABLE wheelby."Reservations"
@@ -53,7 +53,7 @@ Estado de referencia: máquina de estados de reservas implementada (Pending, Con
     ) WHERE ("Status" IN ('Confirmed', 'InProgress'));  -- Status se guarda como texto (HasConversion<string>)
   ```
 
-- [ ] **Reseñas:** una por actor por reserva Completed, no editables.
+- [x] **Reseñas:** una por actor por reserva Completed, no editables. *Hecho: `POST/GET /reservations/{id}/reviews` y `GET /vehicles/{id}/reviews`; índice único (reserva, autor) y calificación 1-5 con `CHECK`.*
 
 ## Fuera de este documento
 
