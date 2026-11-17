@@ -2,6 +2,7 @@ using AccessControl.Contracts;
 using MediatR;
 using Shared.Application.Abstractions;
 using SharedKernel.Exceptions;
+using Wheelby.Domain.Errors;
 using Wheelby.Application.Abstractions;
 using Wheelby.Domain.Reservations;
 using Wheelby.Domain.Vehicles;
@@ -20,10 +21,10 @@ internal sealed class CancelReservationCommandHandler(
         CancellationToken cancellationToken)
     {
         var reservation = await reservations.GetByIdAsync(command.Id, cancellationToken)
-            ?? throw new NotFoundException("La reserva no existe.");
+            ?? throw new NotFoundException("La reserva no existe.", WheelbyErrorCodes.ReservationNotFound);
 
         var vehicle = await vehicles.GetByIdAsync(reservation.VehicleId, cancellationToken)
-            ?? throw new NotFoundException("El vehículo de la reserva no existe.");
+            ?? throw new NotFoundException("El vehículo de la reserva no existe.", WheelbyErrorCodes.VehicleNotFound);
 
         // El actor es Renter si el usuario es el inquilino, Host si es el dueño;
         // si no participa, 403.
@@ -31,7 +32,7 @@ internal sealed class CancelReservationCommandHandler(
         var isHost = vehicle.OwnerId == currentUser.Id;
 
         if (!isRenter && !isHost)
-            throw new ForbiddenException("No participas en esta reserva, no puedes cancelarla.");
+            throw new ForbiddenException("No participas en esta reserva, no puedes cancelarla.", WheelbyErrorCodes.ReservationNotParticipant);
 
         var actor = isRenter ? ReservationActor.Renter : ReservationActor.Host;
 

@@ -6,5 +6,5 @@ namespace SharedKernel.Exceptions;
     public class ServiceUnavailableException : AppException
     {
         public override int StatusCode => 503;
-        public ServiceUnavailableException(string message) : base(message) { }
+        public ServiceUnavailableException(string message, string? code = null) : base(message, code) { }
     }

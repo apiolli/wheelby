@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Host.WebAPI.ErrorHandling;
 using Shared.Application;
 using Scalar.AspNetCore;
@@ -12,6 +13,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi(options => options.AddDocumentTransformer<BearerSecuritySchemeTransformer>());
 builder.Services.AddProblemDetails();
+// Los enums viajan como texto ("Confirmed", no 1): reordenar un enum no rompe a los clientes.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddSharedApplication();  
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()

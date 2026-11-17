@@ -28,7 +28,7 @@ public class RentalCycleHandlerTests
         var vehiculo = Vehicle.Create(dueno.Id, "Toyota", "Corolla", 2020, "ABC-123", 15000m, Ahora);
         vehicles.AddAsync(vehiculo).GetAwaiter().GetResult();
 
-        var reserva = Reservation.Create(vehiculo.Id, inquilino.Id, Inicio, Fin, Ahora);
+        var reserva = Reservation.Create(vehiculo.Id, inquilino.Id, Inicio, Fin, 100m, Ahora);
         reserva.TransitionTo(ReservationStatus.Confirmed, ReservationActor.Host, Ahora, null);
         reservations.AddAsync(reserva).GetAwaiter().GetResult();
 
@@ -71,7 +71,7 @@ public class RentalCycleHandlerTests
         var vehiculo = Vehicle.Create(dueno.Id, "Toyota", "Corolla", 2020, "ABC-123", 15000m, Ahora);
         await vehicles.AddAsync(vehiculo);
 
-        var reserva = Reservation.Create(vehiculo.Id, inquilino.Id, Inicio, Fin, Ahora);
+        var reserva = Reservation.Create(vehiculo.Id, inquilino.Id, Inicio, Fin, 100m, Ahora);
         // Ya nace en Pending, no hace falta confirmar
         await reservations.AddAsync(reserva);
 

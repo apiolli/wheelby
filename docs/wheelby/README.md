@@ -26,7 +26,11 @@ Un Estándar **no** puede publicar hasta que un Administrador le apruebe el perm
 | ---- | ---------------- | -------- |
 | `POST /vehicles` | `/vehicles`, `RequireStandard` | F1: publica un vehículo. 201 con `{ "id" }`. |
 | `GET /vehicles/available?from=&to=&page=&pageSize=&currency=` | `/vehicles`, `RequireStandard` | F2: lista vehículos disponibles paginados. 200. `currency` (opcional) convierte los precios, que están en DOP. |
-| `POST /reservations` | `/reservations`, `RequireStandard` | F3: solicita una reserva. 201 con `{ "id" }`. |
+| `GET /vehicles/mine?page=&pageSize=` | `/vehicles`, `RequireStandard` | Vehículos publicados por el anfitrión autenticado, paginados. 200. |
+| `GET /vehicles/{id}` | `/vehicles`, `RequireStandard` | Ficha del vehículo. 200, o 404 con `code: "vehicle.not-found"`. |
+| `GET /vehicles/{id}/availability?from=&to=` | `/vehicles`, `RequireStandard` | Rangos bloqueados (`Confirmed` e `InProgress`) que tocan `[from, to)`, ordenados por inicio. 200. Rango máximo 366 días. |
+| `POST /reservations` | `/reservations`, `RequireStandard` | F3: solicita una reserva. 201 con `{ "id" }`. Congela `pricePerDay` y `totalAmount`. |
+| `GET /reservations/{id}` | `/reservations`, `RequireStandard` | Detalle de la reserva. Lo ven el inquilino y el dueño del vehículo; para cualquier otro, **404** (no se revela si existe). |
 | `GET /reservations/mine?as=renter\|host&page=&pageSize=` | `/reservations`, `RequireStandard` | F6: lista las reservas del usuario (como inquilino o anfitrión). 200. |
 | `POST /reservations/{id}/confirm` | `/reservations`, `RequireStandard` | F4: confirma una reserva. 204. |
 | `POST /reservations/{id}/reject` | `/reservations`, `RequireStandard` | F4: rechaza una reserva (`{ "reason": "..." }`). 204. |
@@ -34,10 +38,37 @@ Un Estándar **no** puede publicar hasta que un Administrador le apruebe el perm
 | `POST /reservations/{id}/complete` | `/reservations`, `RequireStandard` | F5: completa el alquiler. 204. |
 | `POST /reservations/{id}/cancel` | `/reservations`, `RequireStandard` | F5: cancela una reserva (`{ "reason": "..." }`). 204. |
 | `GET /admin/reservations?status=&page=&pageSize=` | `/admin/reservations`, `RequireAdministrator` | F6: lista todas las reservas, opcionalmente filtradas por estado. 200. |
+| `GET /admin/reservations/{id}` | `/admin/reservations`, `RequireAdministrator` | Detalle de cualquier reserva para el Administrador. |
 
 En el borde HTTP las fechas llegan como `DateTimeOffset` y se convierten a `DateTime` UTC antes de crear el comando.
 
 Sin sesión → **401**. Con sesión pero sin el rol del grupo → **403**.
+
+### Formato de las respuestas
+
+- **Reservas** (`/reservations/mine`, `/reservations/{id}`, `/admin/reservations`): cada item trae, además de las fechas y el estado, `ownerId`, `brand`, `model`, `year`, `plate`, `pricePerDay`, `days`, `totalAmount`, `cancellationReason` y `currency: "DOP"`. `pricePerDay` y `totalAmount` se **congelan al crear la reserva**: si el anfitrión cambia el precio después, las reservas hechas no cambian. `days` cuenta cada fracción de 24 h como un día completo (mínimo 1).
+- **Enums como texto:** `status` viaja como `"Pending"`, `"Confirmed"`, `"InProgress"`, `"Completed"` o `"Cancelled"` (`JsonStringEnumConverter`). El filtro `?status=` acepta el nombre.
+- **Código de error estable:** todo `problem+json` lleva `code` junto a `traceId`. El cliente decide con `code`, nunca con el texto en español de `detail`.
+
+| `code` | HTTP | Cuándo |
+| ------ | ---- | ------ |
+| `validation` | 400 | Falla la validación de forma; `errors` trae el detalle por campo. |
+| `request.malformed` | 400 | JSON roto o parámetro con tipo inválido. |
+| `vehicle.invalid-data`, `reservation.invalid-data` | 400 | El dominio rechaza los datos. |
+| `unauthorized` | 401 | Sin sesión o sesión inválida. |
+| `forbidden` | 403 | Rol equivocado para el grupo de rutas. |
+| `vehicle.publish-not-allowed` | 403 | Falta el permiso `wheelby.publish-vehicle`. |
+| `reservation.own-vehicle` | 403 | Reservar el propio vehículo. |
+| `reservation.not-host` | 403 | Confirmar, rechazar, iniciar o completar sin ser el dueño. |
+| `reservation.not-participant` | 403 | Cancelar sin ser inquilino ni dueño. |
+| `reservation.transition-not-allowed` | 403 | El actor o la condición de la transición no se cumplen. |
+| `vehicle.not-found`, `reservation.not-found` | 404 | No existe (o no puedes verla). |
+| `vehicle.plate-taken` | 409 | Placa repetida. |
+| `vehicle.overlap` | 409 | Solapa con una reserva `Confirmed` o `InProgress`. |
+| `reservation.invalid-transition` | 409 | Transición inexistente o desde un estado terminal. |
+| `internal` | 500 | Error no controlado. |
+
+Los códigos de Wheelby viven en `WheelbyErrorCodes`; los genéricos, en `Host.WebAPI/ErrorHandling/ErrorCodes`. Un código publicado no se renombra.
 
 ## Cómo provocar cada criterio de aceptación
 
@@ -97,7 +128,7 @@ Para autenticarte en Scalar: ejecuta `POST /auth/login`, copia el `accessToken` 
   - Sin `currency`, o con `DOP`, no se llama a la API externa y los tres campos quedan en `null`.
   - `currency` que no son 3 letras (`US`, `USDX`, `12$`) → **400**.
   - Moneda que el proveedor no soporta → **400** ("La moneda XYZ no está soportada.").
-  - Sin `ExchangeRate__ApiKey`, con una clave inválida o con la API caída → **503** con un mensaje controlado. Ver la sección «API externa» del README principal.
+  - Sin `ExchangeRate__ApiKey`, con una clave inválida, con la cuota agotada o con la API caída → **200** con los precios en DOP y los tres campos de conversión en `null` (la búsqueda nunca falla por el servicio externo). La tasa se cachea `ExchangeRate__CacheMinutes` minutos. Ver la sección «API externa» del README principal.
 
 ### F3 — Solicitar reserva
 
@@ -224,8 +255,9 @@ Con `StartDate` en el pasado y `EndDate` en el futuro respecto a `utcNow`, `POST
 - **El dominio no lee el reloj ni el usuario:** recibe `utcNow` por parámetro.
 - **Los errores no exponen detalles internos (RD-08):** `GlobalExceptionHandler` convierte las excepciones de dominio en HTTP sin detalles internos.
 - **Publicar un vehículo depende del permiso `wheelby.publish-vehicle`**, comprobado solo por `IPermissionChecker` (RF-NEG-06).
-- **Datos de Wheelby persisten tras reiniciar la API (RD-09):** migración `AddVehicles` aplicada al arrancar.
+- **Datos de Wheelby persisten tras reiniciar la API (RD-09):** migraciones `AddVehicles` y `FreezeReservationPrice` aplicadas al arrancar. `FreezeReservationPrice` rellena las reservas anteriores con el precio actual del vehículo (no había registro del precio original).
+- **Solape concurrente:** dos confirmaciones simultáneas sobre fechas que chocan pueden pasar ambas `HasBlockingOverlapAsync`. El cierre previsto es una restricción `EXCLUDE` (ver `pendientes-backend.md`).
 
 ## Fuera de alcance de esta práctica
 
-Notificaciones (RF-NEG-07), reportes (RF-NEG-08), adjuntar documentos (RF-NEG-10), verificación de identidad del anfitrión (`MemberVerification`, cédula, hash), fotos de vehículos, cálculo de totales o precio congelado en la reserva, y restricción `EXCLUDE` de PostgreSQL contra solapamientos concurrentes (quedan como limitación documentada).
+Notificaciones (RF-NEG-07), reportes (RF-NEG-08), adjuntar documentos (RF-NEG-10), verificación de identidad del anfitrión (`MemberVerification`, cédula, hash), fotos de vehículos, y restricción `EXCLUDE` de PostgreSQL contra solapamientos concurrentes (quedan como limitación documentada).

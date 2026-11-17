@@ -26,7 +26,7 @@ public sealed class InMemoryVehicleReadStore : IVehicleReadStore
                 && (r.Status == ReservationStatus.Confirmed || r.Status == ReservationStatus.InProgress)
                 && from < r.EndDate
                 && to > r.StartDate))
-            .Select(v => new VehicleSummaryDTO(v.Id, v.OwnerId, "Marca", "Modelo", 2020, v.Plate, 100m, DateTime.UtcNow))
+            .Select(ToDto)
             .ToList();
 
         var total = disponibles.Count;
@@ -34,6 +34,38 @@ public sealed class InMemoryVehicleReadStore : IVehicleReadStore
 
         return Task.FromResult(new PagedResult<VehicleSummaryDTO>(items, page, pageSize, total));
     }
+
+    public Task<VehicleSummaryDTO?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        => Task.FromResult(_vehicles
+            .Where(v => v.Id == id)
+            .Select(ToDto)
+            .Cast<VehicleSummaryDTO?>()
+            .FirstOrDefault());
+
+    public Task<PagedResult<VehicleSummaryDTO>> ListByOwnerAsync(
+        Guid ownerId, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var propios = _vehicles.Where(v => v.OwnerId == ownerId).Select(ToDto).ToList();
+        var items = propios.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult(new PagedResult<VehicleSummaryDTO>(items, page, pageSize, propios.Count));
+    }
+
+    public Task<IReadOnlyList<BlockedRangeDTO>> ListBlockedRangesAsync(
+        Guid vehicleId, DateTime from, DateTime to, CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<BlockedRangeDTO> rangos = _reservations
+            .Where(r => r.VehicleId == vehicleId
+                && (r.Status == ReservationStatus.Confirmed || r.Status == ReservationStatus.InProgress)
+                && from < r.EndDate
+                && to > r.StartDate)
+            .OrderBy(r => r.StartDate)
+            .Select(r => new BlockedRangeDTO(r.StartDate, r.EndDate))
+            .ToList();
+        return Task.FromResult(rangos);
+    }
+
+    private static VehicleSummaryDTO ToDto((Guid Id, Guid OwnerId, string Plate) v)
+        => new(v.Id, v.OwnerId, "Marca", "Modelo", 2020, v.Plate, 100m, DateTime.UtcNow);
 
     public void AgregarVehiculo(Guid id, Guid ownerId, string plate)
         => _vehicles.Add((id, ownerId, plate));

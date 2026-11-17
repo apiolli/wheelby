@@ -5,10 +5,13 @@ using Wheelby.Domain.Reservations;
 
 namespace Wheelby.Test.TestSupport;
 
-// Doble de IReservationReadStore para pruebas de listados (F6).
+// Doble de IReservationReadStore para pruebas de listados y detalle.
 public sealed class InMemoryReservationReadStore : IReservationReadStore
 {
     private readonly List<ReservationSummaryDTO> _reservas = [];
+
+    public Task<ReservationSummaryDTO?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        => Task.FromResult(_reservas.FirstOrDefault(r => r.Id == id));
 
     public Task<PagedResult<ReservationSummaryDTO>> ListByRenterAsync(
         Guid renterId, int page, int pageSize, CancellationToken cancellationToken = default)
@@ -20,7 +23,8 @@ public sealed class InMemoryReservationReadStore : IReservationReadStore
     public Task<PagedResult<ReservationSummaryDTO>> ListByHostAsync(
         Guid hostId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var items = _reservas.Where(r => r.OwnerId == hostId).ToList();
+        return Task.FromResult(new PagedResult<ReservationSummaryDTO>(items, page, pageSize, items.Count));
     }
 
     public Task<PagedResult<ReservationSummaryDTO>> ListAllAsync(

@@ -155,7 +155,7 @@ Cada usuario tiene **exactamente un rol**. En las peticiones, en las respuestas 
 
 ### Rutas y formato de los cuerpos
 
-Todos los cuerpos son JSON (`Content-Type: application/json`) y los nombres de los campos van en camelCase. Los errores se devuelven como `application/problem+json`: **400** datos inválidos, **401** sin sesión, **403** sin permiso, **404** no existe, **409** estado que no admite la operación y **503** un servicio externo no está disponible (sección 6). Una ruta con sesión exige la cabecera `Authorization: Bearer <accessToken>`.
+Todos los cuerpos son JSON (`Content-Type: application/json`) y los nombres de los campos van en camelCase. Los errores se devuelven como `application/problem+json`: **400** datos inválidos, **401** sin sesión, **403** sin permiso, **404** no existe, **409** estado que no admite la operación y **503** un servicio externo no está disponible. Cada error trae `traceId` y un `code` estable (por ejemplo `vehicle.overlap`); el cliente decide con `code`, no con el texto. Los enums viajan como texto (`"Confirmed"`, no `1`). Una ruta con sesión exige la cabecera `Authorization: Bearer <accessToken>`.
 
 | Ruta | Sesión | Cuerpo de la petición | Respuesta correcta |
 |---|---|---|---|
@@ -432,14 +432,14 @@ Los precios publicados están en **pesos dominicanos (DOP)**. Si la búsqueda tr
 
 ### 6.1 Sin clave o con la API caída
 
-El resto del proyecto funciona igual. Solo la búsqueda **con** `currency` responde **503** con un mensaje controlado:
+El resto del proyecto funciona igual, y la búsqueda **con** `currency` tampoco falla: si el servicio externo no está disponible, responde **200** con los precios en DOP y `convertedPricePerDay`, `convertedCurrency` y `exchangeRate` en `null`. El motivo queda en el log de la API.
 
 | Situación | Respuesta |
 |---|---|
-| `ExchangeRate__ApiKey` vacía | **503** "La conversión de moneda no está disponible: falta configurar ExchangeRate__ApiKey." |
-| Clave de ejemplo o inválida | **503** "El servicio de tasas de cambio rechazó la clave configurada." |
-| La API no responde o responde algo inválido | **503** "El servicio de tasas de cambio no respondió. Intenta más tarde." |
-| Se agotó la cuota | **503** "Se agotó la cuota del servicio de tasas de cambio. Intenta más tarde." |
+| `ExchangeRate__ApiKey` vacía | **200** en DOP, sin conversión |
+| Clave de ejemplo o inválida | **200** en DOP, sin conversión |
+| La API no responde o responde algo inválido | **200** en DOP, sin conversión |
+| Se agotó la cuota | **200** en DOP, sin conversión |
 | Moneda que el proveedor no conoce (por ejemplo `XYZ`) | **400** "La moneda XYZ no está soportada." |
 | `currency` que no son 3 letras (`US`, `12$`) | **400** |
 
@@ -449,7 +449,7 @@ Para comprobarlo con la clave de ejemplo de `.env.example`, con el token de un E
 GET /vehicles/available?from=2030-01-10T10:00:00Z&to=2030-01-12T10:00:00Z&currency=USD
 ```
 
-→ **503**. La misma búsqueda **sin** `currency` → **200**.
+→ **200** con `convertedPricePerDay: null` en cada vehículo.
 
 ### 6.2 Formato de la respuesta
 

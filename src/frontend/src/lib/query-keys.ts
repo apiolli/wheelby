@@ -1,3 +1,5 @@
+import type { ReservationStatus } from "@/types/types";
+
 // Claves de TanStack Query, en un solo lugar para invalidar sin errores de tecleo.
 export const queryKeys = {
   available: (q: object) => ["vehicles", "available", q] as const,
@@ -15,6 +17,6 @@ export const queryKeys = {
       ? (["admin", "users"] as const)
       : (["admin", "users", page] as const),
   adminRequests: ["admin", "requests"] as const,
-  adminReservations: (status?: number, page?: number) =>
+  adminReservations: (status?: ReservationStatus, page?: number) =>
     ["admin", "reservations", status ?? "all", page ?? 1] as const,
 };

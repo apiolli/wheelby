@@ -66,7 +66,7 @@ public class RequestReservationHandlerTests
         await vehicles.AddAsync(vehiculo);
 
         // Reserva Confirmed existente que solapa
-        var existente = Reservation.Create(vehiculo.Id, Guid.NewGuid(), Inicio, Fin, Ahora);
+        var existente = Reservation.Create(vehiculo.Id, Guid.NewGuid(), Inicio, Fin, 100m, Ahora);
         existente.TransitionTo(ReservationStatus.Confirmed, ReservationActor.Host, Ahora, null);
         await reservations.AddAsync(existente);
 
@@ -98,5 +98,36 @@ public class RequestReservationHandlerTests
         Assert.Equal(ReservationStatus.Pending, reserva.Status);
         Assert.Equal(currentUser.Id, reserva.RenterId);
         Assert.Equal(1, unitOfWork.SaveCount);
+    }
+
+    [Fact]
+    public async Task Congela_el_precio_del_vehiculo_al_reservar()
+    {
+        // Arrange
+        var handler = CrearHandler(out var vehicles, out var reservations, out _, out _);
+        var vehiculo = Vehicle.Create(Guid.NewGuid(), "Toyota", "Corolla", 2020, "ABC-123", 15000m, Ahora);
+        await vehicles.AddAsync(vehiculo);
+
+        // Act
+        var id = await handler.Handle(new RequestReservationCommand(vehiculo.Id, Inicio, Fin), CancellationToken.None);
+
+        // Assert: Inicio → Fin son 2 días.
+        var reserva = Assert.Single(reservations.Reservations, r => r.Id == id);
+        Assert.Equal(15000m, reserva.PricePerDayAtBooking);
+        Assert.Equal(2, reserva.Days);
+        Assert.Equal(30000m, reserva.TotalAmount);
+    }
+
+    [Fact]
+    public async Task Propio_vehiculo_trae_codigo_estable()
+    {
+        var handler = CrearHandler(out var vehicles, out _, out _, out var currentUser);
+        var vehiculo = Vehicle.Create(currentUser.Id, "Toyota", "Corolla", 2020, "ABC-123", 15000m, Ahora);
+        await vehicles.AddAsync(vehiculo);
+
+        var ex = await Assert.ThrowsAsync<ForbiddenException>(() =>
+            handler.Handle(new RequestReservationCommand(vehiculo.Id, Inicio, Fin), CancellationToken.None));
+
+        Assert.Equal(Wheelby.Domain.Errors.WheelbyErrorCodes.ReservationOwnVehicle, ex.Code);
     }
 }

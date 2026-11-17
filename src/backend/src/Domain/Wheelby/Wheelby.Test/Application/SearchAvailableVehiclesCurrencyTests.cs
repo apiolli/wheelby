@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using SharedKernel.Exceptions;
 using Wheelby.Application.Features.SearchAvailableVehicles;
 using Wheelby.Test.TestSupport;
@@ -13,7 +14,7 @@ public class SearchAvailableVehiclesCurrencyTests
         var readStore = new InMemoryVehicleReadStore();
         for (var i = 0; i < vehiculos; i++)
             readStore.AgregarVehiculo(Guid.NewGuid(), Guid.NewGuid(), $"ABC-{i:000}"); // precio fijo 100 DOP
-        return new SearchAvailableVehiclesQueryHandler(readStore, new MutableCurrentUser(Guid.NewGuid()), proveedor);
+        return new SearchAvailableVehiclesQueryHandler(readStore, new MutableCurrentUser(Guid.NewGuid()), proveedor, NullLogger<SearchAvailableVehiclesQueryHandler>.Instance);
     }
 
     [Fact]
@@ -87,19 +88,41 @@ public class SearchAvailableVehiclesCurrencyTests
     }
 
     [Fact]
-    public async Task RD_08_Si_el_proveedor_lanza_503_la_excepcion_se_propaga()
+    public async Task RD_10_Si_el_proveedor_no_esta_disponible_responde_en_DOP_sin_conversion()
     {
         // Arrange
         var proveedor = new FakeExchangeRateProvider(failWith: new ServiceUnavailableException("caido"));
         var handler = CrearHandler(proveedor);
 
         // Act
+        var resultado = await handler.Handle(
+            new SearchAvailableVehiclesQuery(Desde, Hasta, Currency: "USD"), CancellationToken.None);
+
+        // Assert: la búsqueda no falla; los precios quedan en DOP sin conversión.
+        Assert.Equal(1, proveedor.Calls);
+        Assert.Equal(2, resultado.Items.Count);
+        Assert.All(resultado.Items, v =>
+        {
+            Assert.Equal("DOP", v.Currency);
+            Assert.Null(v.ConvertedPricePerDay);
+            Assert.Null(v.ConvertedCurrency);
+            Assert.Null(v.ExchangeRate);
+        });
+    }
+
+    [Fact]
+    public async Task RD_10_Moneda_no_soportada_sigue_siendo_400()
+    {
+        // Arrange
+        var proveedor = new FakeExchangeRateProvider(failWith: new BadRequestException("La moneda XYZ no está soportada."));
+        var handler = CrearHandler(proveedor);
+
+        // Act
         var ex = await Record.ExceptionAsync(() =>
-            handler.Handle(new SearchAvailableVehiclesQuery(Desde, Hasta, Currency: "USD"), CancellationToken.None));
+            handler.Handle(new SearchAvailableVehiclesQuery(Desde, Hasta, Currency: "XYZ"), CancellationToken.None));
 
         // Assert
-        var unavailable = Assert.IsType<ServiceUnavailableException>(ex);
-        Assert.Equal(503, unavailable.StatusCode);
+        Assert.Equal(400, Assert.IsType<BadRequestException>(ex).StatusCode);
     }
 
     [Theory]

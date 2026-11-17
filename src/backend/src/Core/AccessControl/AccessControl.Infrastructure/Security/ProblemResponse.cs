@@ -19,6 +19,7 @@ internal static class ProblemResponse
             Detail = detail
         };
         problem.Extensions["traceId"] = Activity.Current?.Id ?? httpContext.TraceIdentifier;
+        problem.Extensions["code"] = status == StatusCodes.Status401Unauthorized ? "unauthorized" : "forbidden";
 
         return httpContext.Response.WriteAsJsonAsync(
             problem, problem.GetType(), options: null,

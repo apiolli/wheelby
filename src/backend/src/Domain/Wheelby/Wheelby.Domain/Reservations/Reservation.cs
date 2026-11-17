@@ -17,6 +17,12 @@ public sealed class Reservation : AggregateRoot<Guid>
     public string? CancellationReason { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
+    // Precio congelado al crear la reserva: si el anfitrión cambia el precio
+    // del vehículo después, el total de esta reserva no cambia.
+    public decimal PricePerDayAtBooking { get; private set; }
+    public int Days { get; private set; }
+    public decimal TotalAmount { get; private set; }
+
     private Reservation() : base(Guid.Empty) { }
 
     private Reservation(
@@ -25,6 +31,7 @@ public sealed class Reservation : AggregateRoot<Guid>
         Guid renterId,
         DateTime startDate,
         DateTime endDate,
+        decimal pricePerDay,
         DateTime utcNow)
         : base(id)
     {
@@ -34,13 +41,21 @@ public sealed class Reservation : AggregateRoot<Guid>
         EndDate = endDate;
         Status = ReservationStatus.Pending;
         CreatedAt = utcNow;
+        PricePerDayAtBooking = pricePerDay;
+        Days = CountDays(startDate, endDate);
+        TotalAmount = decimal.Round(pricePerDay * Days, 2, MidpointRounding.AwayFromZero);
     }
+
+    // Días cobrados: cada fracción de 24 h cuenta como un día completo.
+    public static int CountDays(DateTime startDate, DateTime endDate)
+        => Math.Max(1, (int)Math.Ceiling((endDate - startDate).TotalDays));
 
     public static Reservation Create(
         Guid vehicleId,
         Guid renterId,
         DateTime startDate,
         DateTime endDate,
+        decimal pricePerDay,
         DateTime utcNow)
     {
         if (vehicleId == Guid.Empty)
@@ -58,7 +73,10 @@ public sealed class Reservation : AggregateRoot<Guid>
         if (startDate <= utcNow)
             throw new InvalidReservationDataException("La fecha de inicio debe ser futura.");
 
-        return new Reservation(Guid.NewGuid(), vehicleId, renterId, startDate, endDate, utcNow);
+        if (pricePerDay <= 0m)
+            throw new InvalidReservationDataException("El precio por día debe ser mayor que cero.");
+
+        return new Reservation(Guid.NewGuid(), vehicleId, renterId, startDate, endDate, pricePerDay, utcNow);
     }
 
     public void TransitionTo(
