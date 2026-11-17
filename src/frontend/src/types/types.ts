@@ -82,9 +82,16 @@ export interface Vehicle {
   city: string | null;
   description: string | null;
   isActive: boolean;
+  // Primera foto (P4), o null: se muestra la ilustración de marca.
+  coverPhotoId: string | null;
 }
 
-export type VehicleType = "Car" | "Motorcycle" | "Bicycle" | "Scooter" | "Other";
+export type VehicleType =
+  | "Car"
+  | "Motorcycle"
+  | "Bicycle"
+  | "Scooter"
+  | "Other";
 
 // La API serializa el estado de la reserva como texto (JsonStringEnumConverter).
 export const ReservationStatus = {
@@ -117,6 +124,7 @@ export interface Reservation {
   cancellationReason: string | null;
   createdAt: string;
   currency: string;
+  coverPhotoId: string | null;
 }
 
 // GET /vehicles/{id}/availability: rangos bloqueados (Confirmed e InProgress).

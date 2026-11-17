@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { m } from "motion/react";
 import {
   BadgeCheck,
@@ -12,29 +12,26 @@ import {
 import { Link } from "react-router";
 
 import { errorMessage } from "@/api/errors";
-import { listMyRequests, requestPermission } from "@/api/wheelby.api";
+import { requestPermission } from "@/api/wheelby.api";
 import SectionHeading from "@/components/custom/SectionHeading";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useHostStatus } from "@/features/host/useHostStatus";
+import { features } from "@/lib/features";
 import { formatDate } from "@/lib/format";
 import { ENTER } from "@/lib/motion";
-import {
-  hostStatus,
-  latestHostRequest,
-  PUBLISH_VEHICLE,
-} from "@/lib/permissions";
+import { PUBLISH_VEHICLE } from "@/lib/permissions";
 import { queryKeys } from "@/lib/query-keys";
+import { DOCUMENT_FORMATS_LABEL } from "@/lib/schemas";
 import { showToast } from "@/stores/session.store";
-import PublishVehicleForm from "../components/PublishVehicleForm";
+import DocumentsManager from "../components/DocumentsManager";
 
-// Ser anfitrión = tener el permiso wheelby.publish-vehicle, que concede un Administrador.
+// Ser anfitrión = tener el permiso wheelby.publish-vehicle, que concede un Administrador. La
+// tarjeta tiene cuatro variantes según la última solicitud; debajo, los documentos propios.
 export default function HostSection() {
   const queryClient = useQueryClient();
-  const requests = useQuery({
-    queryKey: queryKeys.myRequests,
-    queryFn: () => listMyRequests(1, 100),
-  });
+  const requests = useHostStatus();
 
   const apply = useMutation({
     mutationFn: () => requestPermission(PUBLISH_VEHICLE),
@@ -45,15 +42,13 @@ export default function HostSection() {
     onError: (err) => showToast(errorMessage(err)),
   });
 
-  const request = requests.data
-    ? latestHostRequest(requests.data.items)
-    : undefined;
-  const status = hostStatus(request);
+  const { request, status } = requests;
 
   const applyButton = (label: string, variant: "outline" | "default") => (
     <Button
       variant={variant}
       size="lg"
+      className="rounded-full"
       onClick={() => apply.mutate()}
       disabled={apply.isPending}
       aria-busy={apply.isPending}
@@ -87,58 +82,57 @@ export default function HostSection() {
           // Es una invitación: botón con borde, nunca primario relleno.
           action={applyButton("Conviértete en anfitrión", "outline")}
         >
-          <p>
-            Publica tu vehículo y decide cuándo alquilarlo. Nuestro equipo
-            revisa cada solicitud antes de que puedas publicar.
-          </p>
+          <p>Publica tus vehículos y empieza a generar ingresos.</p>
         </HostCard>
       ) : status === "pending" ? (
-        <HostCard icon={Clock} title="Estamos revisando tu solicitud">
+        <HostCard icon={Clock} title="Tu solicitud está en revisión.">
           <p>
             La enviaste el {formatDate(request!.createdAt)}. Te avisaremos
             cuando un administrador la revise.
           </p>
         </HostCard>
       ) : status === "verified" ? (
-        <>
-          <HostCard
-            icon={BadgeCheck}
-            title="Ya eres anfitrión"
-            badge={
-              <Badge variant="default">
-                <BadgeCheck
-                  className="text-highlight-strong"
-                  strokeWidth={2.2}
-                />
-                Anfitrión verificado
-              </Badge>
-            }
-            action={
-              <Link
-                to="/perfil/solicitudes"
-                className={buttonVariants({ variant: "outline", size: "lg" })}
-              >
-                Ver solicitudes de reserva
-              </Link>
-            }
-          >
-            <p>
-              Aprobamos tu solicitud
-              {request?.resolvedAt
-                ? ` el ${formatDate(request.resolvedAt)}`
-                : ""}
-              . Ya puedes publicar vehículos.
-            </p>
-          </HostCard>
-          <PublishVehicleForm />
-        </>
+        <HostCard
+          icon={BadgeCheck}
+          title="Eres anfitrión verificado."
+          badge={
+            <Badge variant="default">
+              <BadgeCheck className="text-highlight-strong" strokeWidth={2.2} />
+              Anfitrión verificado
+            </Badge>
+          }
+          action={
+            <Link
+              to={
+                features.myVehicles
+                  ? "/anfitrion/vehiculos"
+                  : "/anfitrion/vehiculos/nuevo"
+              }
+              className={buttonVariants({
+                size: "lg",
+                className: "rounded-full",
+              })}
+            >
+              Ir a Mis vehículos
+            </Link>
+          }
+        >
+          {/* La fecha solo si la solicitud la trae. */}
+          {request?.resolvedAt && (
+            <p>Verificado desde el {formatDate(request.resolvedAt)}.</p>
+          )}
+          <p>Publica vehículos y gestiona las reservas que recibes.</p>
+        </HostCard>
       ) : (
         <HostCard
           icon={CircleAlert}
           title="No pudimos aprobar tu solicitud"
           action={applyButton("Volver a solicitar", "default")}
         >
-          <p>Revisa el motivo y vuelve a enviarla cuando lo hayas resuelto.</p>
+          <p>
+            Un administrador rechazó tu solicitud. Revisa el motivo y vuelve a
+            enviarla cuando lo hayas resuelto.
+          </p>
           {request?.rejectionReason && (
             <div className="mt-4 rounded-xl bg-background p-4">
               <p className="text-[12.5px] font-bold text-foreground">Motivo</p>
@@ -149,6 +143,27 @@ export default function HostSection() {
           )}
         </HostCard>
       )}
+
+      <section aria-labelledby="my-docs" className="mt-10">
+        <DocumentsManager
+          restrictTypes
+          heading={(upload) => (
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 id="my-docs" className="text-lg font-bold tracking-tight">
+                  Mis documentos
+                </h2>
+                <p className="text-[14px] text-muted-foreground">
+                  Licencia de conducir, matrícula del vehículo… ·{" "}
+                  {DOCUMENT_FORMATS_LABEL}
+                </p>
+              </div>
+              {upload}
+            </div>
+          )}
+          footnote="Solo tú y el equipo de Wheelby pueden ver estos documentos."
+        />
+      </section>
     </>
   );
 }

@@ -83,7 +83,7 @@ internal sealed class ReservationReadStore(WheelbyDbContext db) : IReservationRe
                 v => v.Id,
                 (r, v) => new ReservationWithVehicle { Reservation = r, Vehicle = v });
 
-    private static IQueryable<ReservationSummaryDTO> Project(IQueryable<ReservationWithVehicle> query)
+    private IQueryable<ReservationSummaryDTO> Project(IQueryable<ReservationWithVehicle> query)
         => query.Select(x => new ReservationSummaryDTO(
             x.Reservation.Id,
             x.Reservation.VehicleId,
@@ -101,9 +101,14 @@ internal sealed class ReservationReadStore(WheelbyDbContext db) : IReservationRe
             x.Reservation.TotalAmount,
             x.Reservation.CancellationReason,
             x.Reservation.CreatedAt,
-            "DOP"));
+            "DOP",
+            db.VehiclePhotos
+                .Where(p => p.VehicleId == x.Vehicle.Id)
+                .OrderBy(p => p.AddedAt).ThenBy(p => p.Id)
+                .Select(p => (Guid?)p.DocumentId)
+                .FirstOrDefault()));
 
-    private static async Task<PagedResult<ReservationSummaryDTO>> ToPageAsync(
+    private async Task<PagedResult<ReservationSummaryDTO>> ToPageAsync(
         IQueryable<ReservationWithVehicle> query,
         int page,
         int pageSize,

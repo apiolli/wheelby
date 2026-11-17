@@ -32,21 +32,47 @@ export function formatDateRange(start: string, end: string) {
   return `${a.getDate()} ${month(a)} – ${formatDate(end)}`;
 }
 
+// "del 20 al 23 dic" · "del 28 nov al 2 dic" · con año si no es el actual.
+export function formatRangeWords(start: string, end: string) {
+  const a = parse(start);
+  const b = parse(end);
+  const year = (d: Date) =>
+    d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : "";
+  const first =
+    a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
+      ? `${a.getDate()}`
+      : `${a.getDate()} ${month(a)}${a.getFullYear() !== b.getFullYear() ? year(a) : ""}`;
+  return `del ${first} al ${b.getDate()} ${month(b)}${year(b)}`;
+}
+
+// "20 nov" (o "20 nov 2027" si no es el año actual).
+export function formatDayShort(iso: string) {
+  const d = parse(iso);
+  const y =
+    d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : "";
+  return `${d.getDate()} ${month(d)}${y}`;
+}
+
 export const firstName = (name: string) => name.trim().split(/\s+/)[0];
 
 export const initial = (name: string) => name.trim().charAt(0).toUpperCase();
 
-// "$4,500 por día" → formatPrice(4500) = "$4,500". DOP sin decimales; otras monedas con dos.
-export function formatPrice(amount: number, currency = "DOP") {
-  const dop = currency === "DOP";
-  const formatted = new Intl.NumberFormat("es-DO", {
+// "RD$4,500" · "US$45.50" · "€41.20". DOP sin decimales; otras monedas con dos, salvo que se
+// pida un aproximado ("≈ US$45"), que va redondeado.
+export function formatPrice(
+  amount: number,
+  currency = "DOP",
+  { approx = false }: { approx?: boolean } = {},
+) {
+  const decimals = currency === "DOP" || approx ? 0 : 2;
+  return new Intl.NumberFormat("es-DO", {
     style: "currency",
     currency,
-    currencyDisplay: dop ? "narrowSymbol" : "code",
-    maximumFractionDigits: dop ? 0 : 2,
-    minimumFractionDigits: dop ? 0 : 2,
+    // es-DO escribe "RD$" y "US$"; para el euro, "€" en vez de "EUR".
+    currencyDisplay: currency === "EUR" ? "narrowSymbol" : "symbol",
+    maximumFractionDigits: decimals,
+    minimumFractionDigits: decimals,
   }).format(amount);
-  return formatted;
 }
 
 // "2.4 MB"

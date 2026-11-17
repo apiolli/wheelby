@@ -21,22 +21,22 @@ export const STATUS_FILTERS: FilterOption<UserStatus>[] = [
 ];
 
 export const RESERVATION_FILTERS: FilterOption<ReservationStatus>[] = [
-  { slug: "todas", label: "Todos los estados" },
-  { slug: "pendiente", label: "Pendientes", value: ReservationStatus.Pending },
+  { slug: "todas", label: "Todas" },
+  { slug: "solicitada", label: "Solicitada", value: ReservationStatus.Pending },
   {
     slug: "confirmada",
-    label: "Confirmadas",
+    label: "Confirmada",
     value: ReservationStatus.Confirmed,
   },
   { slug: "en-curso", label: "En curso", value: ReservationStatus.InProgress },
   {
     slug: "completada",
-    label: "Completadas",
+    label: "Completada",
     value: ReservationStatus.Completed,
   },
   {
     slug: "cancelada",
-    label: "Canceladas",
+    label: "Cancelada",
     value: ReservationStatus.Cancelled,
   },
 ];

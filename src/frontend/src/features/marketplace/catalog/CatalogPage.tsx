@@ -1,18 +1,17 @@
 import { m } from "motion/react";
-import { CircleAlert } from "lucide-react";
-import { cn } from "cn";
-import { Link, useSearchParams } from "react-router";
+import { Info } from "lucide-react";
+import { useSearchParams } from "react-router";
 
-import { errorMessage, toApiError } from "@/api/errors";
 import EmptyState from "@/components/custom/EmptyState";
+import { SectionError } from "@/components/custom/ErrorStates";
+import { VehicleGridSkeleton } from "@/components/custom/Skeletons";
 import { CarIllustration } from "@/components/custom/Illustrations";
 import Pagination from "@/components/custom/Pagination";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
 import { formatDateRange } from "@/lib/format";
 import { ENTER, STAGGER_LIST } from "@/lib/motion";
-import { parseCatalogParams } from "@/lib/schemas";
-import ReserveDialog from "./components/ReserveDialog";
+import { daysBetween, parseCatalogParams } from "@/lib/schemas";
+import { vehicleHref } from "../search/params";
 import TrustSection from "./components/TrustSection";
 import VehicleCard from "./components/VehicleCard";
 import { useAvailableVehicles } from "./hooks/useAvailableVehicles";
@@ -20,29 +19,20 @@ import { useAvailableVehicles } from "./hooks/useAvailableVehicles";
 const GRID =
   "grid grid-cols-1 gap-x-5 gap-y-8 min-[480px]:grid-cols-2 min-[780px]:grid-cols-3 min-[1024px]:grid-cols-4 min-[1440px]:grid-cols-5 min-[1680px]:grid-cols-6";
 
-// Catálogo: vehículos libres en las fechas de la URL (?desde=&hasta=&moneda=&pagina=). La
-// reserva se abre con ?reservar=<id>, así que también se puede enlazar.
+// Catálogo: vehículos libres en las fechas de la URL (?desde=&hasta=&moneda=&pagina=). Cada
+// tarjeta abre la ficha del vehículo con la misma búsqueda.
 export default function CatalogPage() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const search = parseCatalogParams(params);
-  const { data, isPending, isError, error, isPlaceholderData } =
+  const { data, isPending, isError, error, isPlaceholderData, refetch } =
     useAvailableVehicles(search);
+  const linkSearch = { ...search, hasDates: search.custom };
 
-  const reserveId = params.get("reservar");
-  const reserving = data?.items.find((v) => v.id === reserveId) ?? null;
-
-  const withParam = (key: string, value: string | null) => {
-    const next = new URLSearchParams(params);
-    if (value === null) next.delete(key);
-    else next.set(key, value);
-    return next;
-  };
-  const reserveHref = (id: string) => `/?${withParam("reservar", id)}`;
-  const closeReserve = () =>
-    setParams(withParam("reservar", null), { replace: true });
-
-  // 503: la API de tasa de cambio no respondió. Los precios en DOP siguen disponibles.
-  const conversionFailed = isError && toApiError(error).status === 503;
+  // Se pidió otra moneda y ningún precio vino convertido: la tasa no estuvo disponible.
+  const conversionFailed =
+    search.currency !== "DOP" &&
+    (data?.items.length ?? 0) > 0 &&
+    data!.items.every((v) => v.convertedPricePerDay === null);
 
   return (
     <main className="px-gutter pt-6 pb-10">
@@ -68,38 +58,13 @@ export default function CatalogPage() {
       </m.header>
 
       {isPending ? (
-        <ul className={GRID} aria-busy="true" aria-label="Cargando vehículos">
-          {Array.from({ length: 8 }, (_, i) => (
-            <li key={i} className="animate-pulse">
-              <div className="aspect-4/3 rounded-2xl bg-secondary" />
-              <div className="mt-3 h-3.5 w-2/3 rounded-full bg-secondary" />
-              <div className="mt-2 h-3 w-1/2 rounded-full bg-secondary" />
-            </li>
-          ))}
-        </ul>
+        <VehicleGridSkeleton className={GRID} />
       ) : isError ? (
-        <Alert
-          variant={conversionFailed ? "highlight" : "destructive"}
+        <SectionError
+          error={error}
+          onRetry={() => refetch()}
           className="max-w-160"
-        >
-          <CircleAlert />
-          <AlertDescription>
-            {conversionFailed
-              ? "Ahora no podemos convertir los precios. Puedes verlos en pesos dominicanos."
-              : errorMessage(error)}
-            {conversionFailed && (
-              <Link
-                to={`/?${withParam("moneda", null)}`}
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "mt-3",
-                )}
-              >
-                Ver precios en DOP
-              </Link>
-            )}
-          </AlertDescription>
-        </Alert>
+        />
       ) : data.items.length === 0 ? (
         <EmptyState
           illustration={<CarIllustration className="w-37.5" />}
@@ -108,6 +73,15 @@ export default function CatalogPage() {
         />
       ) : (
         <>
+          {conversionFailed && (
+            <Alert variant="highlight" className="mb-6 max-w-160">
+              <Info />
+              <AlertDescription>
+                Ahora no podemos convertir a {search.currency}. Mostramos los
+                precios en DOP, que es como se cobra.
+              </AlertDescription>
+            </Alert>
+          )}
           <m.ul
             key={`${search.from}-${search.to}-${search.currency}-${search.page}`}
             {...STAGGER_LIST}
@@ -115,7 +89,16 @@ export default function CatalogPage() {
             style={{ opacity: isPlaceholderData ? 0.6 : 1 }}
           >
             {data.items.map((v) => (
-              <VehicleCard key={v.id} vehicle={v} to={reserveHref(v.id)} />
+              <VehicleCard
+                key={v.id}
+                vehicle={v}
+                to={vehicleHref(v.id, linkSearch)}
+                days={
+                  search.custom
+                    ? daysBetween(search.from, search.to)
+                    : undefined
+                }
+              />
             ))}
           </m.ul>
           <Pagination
@@ -127,13 +110,6 @@ export default function CatalogPage() {
       )}
 
       <TrustSection />
-
-      <ReserveDialog
-        vehicle={reserving}
-        from={search.from}
-        to={search.to}
-        onClose={closeReserve}
-      />
     </main>
   );
 }

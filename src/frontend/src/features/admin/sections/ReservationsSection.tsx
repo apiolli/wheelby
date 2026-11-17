@@ -1,13 +1,12 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { m } from "motion/react";
-import { CircleAlert, Inbox } from "lucide-react";
-import { useSearchParams } from "react-router";
+import { Inbox } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { listAllReservations } from "@/api/admin.api";
-import { errorMessage } from "@/api/errors";
+import { SectionError } from "@/components/custom/ErrorStates";
 import Pagination from "@/components/custom/Pagination";
+import { FadeIn, TableSkeleton } from "@/components/custom/Skeletons";
 import { ReservationStatusBadge } from "@/components/custom/StatusBadges";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -27,12 +26,13 @@ import { useUserLookup } from "../hooks/useAllUsers";
 const PAGE_SIZE = 20;
 
 // Todas las reservas, solo de consulta: el Administrador no participa en ellas. Filtro y página
-// en la URL (?estado=pendiente&pagina=2).
+// en la URL (?estado=solicitada&pagina=2).
 export default function ReservationsSection() {
   const [params, setParams] = useSearchParams();
   const filter = findFilter(RESERVATION_FILTERS, params.get("estado"));
   const page = pageParam(params);
   const lookup = useUserLookup();
+  const navigate = useNavigate();
 
   const reservations = useQuery({
     queryKey: queryKeys.adminReservations(filter.value, page),
@@ -76,25 +76,15 @@ export default function ReservationsSection() {
       </AdminHeading>
 
       {reservations.isError ? (
-        <Alert variant="destructive">
-          <CircleAlert />
-          <AlertDescription>
-            {errorMessage(reservations.error)}
-          </AlertDescription>
-        </Alert>
+        <SectionError
+          error={reservations.error}
+          onRetry={() => reservations.refetch()}
+          className="bg-background"
+        />
       ) : (
-        <m.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="overflow-hidden rounded-2xl border border-border-soft bg-background"
-        >
+        <div className="overflow-hidden rounded-2xl border border-border-soft bg-background">
           {reservations.isPending ? (
-            <div className="grid gap-px" aria-busy="true">
-              {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="h-14 animate-pulse bg-secondary/60" />
-              ))}
-            </div>
+            <TableSkeleton rows={6} columns={6} />
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center px-6 py-14 text-center">
               <Inbox
@@ -102,49 +92,61 @@ export default function ReservationsSection() {
                 strokeWidth={1.6}
               />
               <p className="mt-3 text-[14px] text-muted-foreground">
-                No hay reservas{" "}
-                {filter.value === undefined ? "todavía" : "con este estado"}.
+                {filter.value === undefined
+                  ? "Todavía no hay reservas."
+                  : "No hay reservas con ese estado."}
               </p>
             </div>
           ) : (
-            <Table
-              style={{ opacity: reservations.isPlaceholderData ? 0.6 : 1 }}
-            >
-              <TableHeader className="bg-secondary/60">
-                <TableRow>
-                  <TableHead>Reserva</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Arrendatario
-                  </TableHead>
-                  <TableHead>Fechas</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    Solicitada
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((r) => {
-                  const renter = lookup(r.renterId);
-                  return (
-                    <TableRow key={r.id}>
+            <FadeIn>
+              <Table
+                style={{ opacity: reservations.isPlaceholderData ? 0.6 : 1 }}
+              >
+                <TableHeader className="bg-secondary/60">
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Vehículo</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Arrendatario
+                    </TableHead>
+                    <TableHead className="hidden lg:table-cell">
+                      Anfitrión
+                    </TableHead>
+                    <TableHead>Fechas</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="hidden xl:table-cell">
+                      Creada el
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((r) => (
+                    // Solo lectura: la fila abre el detalle; el Administrador no ejecuta transiciones.
+                    <TableRow
+                      key={r.id}
+                      onClick={() => navigate(`/reservas/${r.id}`)}
+                      className="cursor-pointer"
+                    >
                       <TableCell>
-                        <span className="block font-semibold">
+                        <Link
+                          to={`/reservas/${r.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-semibold underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                        >
                           #{shortId(r.id)}
-                        </span>
+                        </Link>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {r.brand} {r.model}
                         <span className="block text-[12.5px] text-muted-foreground">
-                          Vehículo #{shortId(r.vehicleId)}
+                          {r.year}
                         </span>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        <span className="block truncate">
-                          {renter?.fullName ?? `Cuenta #${shortId(r.renterId)}`}
-                        </span>
-                        {renter && (
-                          <span className="block truncate text-[12.5px] text-muted-foreground">
-                            {renter.email}
-                          </span>
-                        )}
+                        <Person user={lookup(r.renterId)} id={r.renterId} />
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <Person user={lookup(r.ownerId)} id={r.ownerId} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         {formatDateRange(r.startDate, r.endDate)}
@@ -152,16 +154,16 @@ export default function ReservationsSection() {
                       <TableCell>
                         <ReservationStatusBadge status={r.status} />
                       </TableCell>
-                      <TableCell className="hidden whitespace-nowrap text-muted-foreground lg:table-cell">
+                      <TableCell className="hidden whitespace-nowrap text-muted-foreground xl:table-cell">
                         {formatDate(r.createdAt)}
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  ))}
+                </TableBody>
+              </Table>
+            </FadeIn>
           )}
-        </m.div>
+        </div>
       )}
       {reservations.data && (
         <Pagination
@@ -169,6 +171,27 @@ export default function ReservationsSection() {
           totalPages={reservations.data.totalPages}
           className="mt-6"
         />
+      )}
+    </>
+  );
+}
+
+function Person({
+  user,
+  id,
+}: {
+  user: { fullName: string; email: string } | undefined;
+  id: string;
+}) {
+  return (
+    <>
+      <span className="block max-w-48 truncate">
+        {user?.fullName ?? `Cuenta #${shortId(id)}`}
+      </span>
+      {user && (
+        <span className="block max-w-48 truncate text-[12.5px] text-muted-foreground">
+          {user.email}
+        </span>
       )}
     </>
   );

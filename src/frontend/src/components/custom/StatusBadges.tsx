@@ -8,11 +8,11 @@ import {
   USER_STATUS_LABEL,
   USER_STATUS_VARIANT,
 } from "@/lib/labels";
-import type {
-  PermissionRequestStatus,
+import {
   ReservationStatus,
-  Role,
-  UserStatus,
+  type PermissionRequestStatus,
+  type Role,
+  type UserStatus,
 } from "@/types/types";
 
 export function RoleBadge({ role }: { role: Role }) {
@@ -38,8 +38,15 @@ export function ReservationStatusBadge({
   status: ReservationStatus;
   className?: string;
 }) {
+  const live = status === ReservationStatus.InProgress;
   return (
     <Badge variant={RESERVATION_STATUS_VARIANT[status]} className={className}>
+      {live && (
+        <span aria-hidden="true" className="relative mr-0.5 flex size-1.5">
+          <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-60 motion-reduce:hidden" />
+          <span className="relative size-1.5 rounded-full bg-primary" />
+        </span>
+      )}
       {RESERVATION_STATUS_LABEL[status]}
     </Badge>
   );

@@ -121,3 +121,27 @@ export function DocumentIllustration({ className }: { className?: string }) {
     </svg>
   );
 }
+
+export function ReviewIllustration({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 160 120" aria-hidden="true">
+      <ellipse cx="80" cy="110" rx="52" ry="6" fill="var(--secondary)" />
+      <circle cx="80" cy="56" r="46" fill="var(--primary-soft)" />
+      <path
+        d="M46 36a10 10 0 0 1 10-10h48a10 10 0 0 1 10 10v28a10 10 0 0 1-10 10H72l-14 12v-12h-2a10 10 0 0 1-10-10Z"
+        fill="var(--background)"
+        stroke="var(--primary)"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M80 38l4.4 8.6 9.6 1.4-7 6.7 1.7 9.5L80 59.7l-8.7 4.5 1.7-9.5-7-6.7 9.6-1.4Z"
+        fill="var(--highlight)"
+      />
+      <path
+        d="M126 28c.4 3 1.7 4.3 4.6 4.6-2.9.4-4.2 1.7-4.6 4.6-.4-2.9-1.7-4.2-4.6-4.6 2.9-.3 4.2-1.6 4.6-4.6Z"
+        fill="var(--highlight)"
+      />
+    </svg>
+  );
+}

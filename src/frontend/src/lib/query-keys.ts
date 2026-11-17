@@ -3,11 +3,28 @@ import type { ReservationStatus } from "@/types/types";
 // Claves de TanStack Query, en un solo lugar para invalidar sin errores de tecleo.
 export const queryKeys = {
   available: (q: object) => ["vehicles", "available", q] as const,
+  vehicle: (id: string) => ["vehicles", id] as const,
+  availability: (id: string, from: string, to: string) =>
+    ["vehicles", id, "availability", from, to] as const,
+  vehicleReviews: (id: string) => ["vehicles", id, "reviews"] as const,
+  vehiclePhotos: (id: string) => ["vehicles", id, "photos"] as const,
+  // La imagen en sí no cambia nunca (un documento no se edita): se cachea aparte.
+  photo: (documentId: string) => ["photo", documentId] as const,
+  // Todo lo de una reserva cuelga de esta clave: invalidarla refresca detalle, historial, etc.
+  reservation: (id: string) => ["reservation", id] as const,
+  reservationPart: (id: string, part: string) =>
+    ["reservation", id, part] as const,
   myReservations: (as: string, page?: number) =>
     page === undefined
       ? (["reservations", "mine", as] as const)
       : (["reservations", "mine", as, page] as const),
   myRequests: ["permissions", "mine"] as const,
+  myVehicles: (page?: number) =>
+    page === undefined
+      ? (["vehicles", "mine"] as const)
+      : (["vehicles", "mine", page] as const),
+  // Todas las reservas recibidas (se leen completas para contar por pestaña y por vehículo).
+  hostReservations: ["reservations", "mine", "host", "all"] as const,
   documents: (page?: number) =>
     page === undefined
       ? (["documents"] as const)

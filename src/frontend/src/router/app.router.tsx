@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router";
 
+import OfflineBanner from "@/components/custom/OfflineBanner";
 import MotionRoot from "@/components/layout/MotionRoot";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import ScrollToTop from "@/components/layout/ScrollToTop";
@@ -8,7 +9,23 @@ import { LoginPage } from "@/features/auth/login/LoginPage";
 import { RecoverPage } from "@/features/auth/recover/RecoverPage";
 import { RegisterPage } from "@/features/auth/register/RegisterPage";
 import AuthLayout from "@/features/auth/shared/layout/AuthLayout";
-import { AdminPage, AppLayout, CatalogPage, ProfilePage } from "./pages";
+import { NotFoundPage } from "@/features/errors/ErrorPages";
+import RouteError from "@/features/errors/RouteError";
+import {
+  AdminPage,
+  AppLayout,
+  CatalogPage,
+  HostReservationsPage,
+  HostRoute,
+  LegalPage,
+  MyVehiclesPage,
+  ProfilePage,
+  VehicleFormPage,
+  ReservationPage,
+  ReservePage,
+  SearchPage,
+  VehiclePage,
+} from "./pages";
 
 // Navegación por URL: cada pantalla, sección, filtro, página y diálogo vive en la ruta o en su
 // query string, así que todo se puede enlazar, recargar y recorrer con atrás/adelante.
@@ -17,10 +34,20 @@ export const router = createBrowserRouter([
     element: (
       <MotionRoot>
         <ScrollToTop />
+        <OfflineBanner />
         <Outlet />
       </MotionRoot>
     ),
+    // Un error inesperado al pintar cualquier ruta: página de error con reintento.
+    errorElement: (
+      <MotionRoot>
+        <RouteError />
+      </MotionRoot>
+    ),
     children: [
+      // Públicas para todos (con o sin sesión): textos legales.
+      { path: "terminos", element: <LegalPage doc="terminos" /> },
+      { path: "privacidad", element: <LegalPage doc="privacidad" /> },
       // Públicas: solo las páginas de acceso.
       {
         path: "/auth",
@@ -43,8 +70,32 @@ export const router = createBrowserRouter([
               // El catálogo es solo del rol Estándar: el Administrador va a su panel.
               {
                 element: <ProtectedRoute requireStandard />,
-                children: [{ index: true, element: <CatalogPage /> }],
+                children: [
+                  { index: true, element: <CatalogPage /> },
+                  { path: "buscar", element: <SearchPage /> },
+                  { path: "vehiculos/:id", element: <VehiclePage /> },
+                  { path: "reservar/:vehiculoId", element: <ReservePage /> },
+                  // Anfitrión: exige el permiso de publicar (si no, 403).
+                  {
+                    path: "anfitrion",
+                    element: <HostRoute />,
+                    children: [
+                      {
+                        index: true,
+                        element: <Navigate to="vehiculos" replace />,
+                      },
+                      { path: "vehiculos", element: <MyVehiclesPage /> },
+                      { path: "vehiculos/nuevo", element: <VehicleFormPage /> },
+                      { path: "vehiculos/:id", element: <VehicleFormPage /> },
+                      { path: "reservas", element: <HostReservationsPage /> },
+                    ],
+                  },
+                ],
               },
+              // Lo ven las dos partes de la reserva y el Administrador.
+              { path: "reservas/:id", element: <ReservationPage /> },
+              // Cualquier otra ruta: 404 dentro del layout, con el header visible.
+              { path: "*", element: <NotFoundPage /> },
               { path: "perfil/*", element: <ProfilePage /> },
             ],
           },
@@ -53,7 +104,6 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute requireAdmin />,
             children: [{ path: "admin/*", element: <AdminPage /> }],
           },
-          { path: "*", element: <Navigate to="/" replace /> },
         ],
       },
     ],

@@ -22,4 +22,6 @@ public sealed record ReservationSummaryDTO(
     decimal TotalAmount,
     string? CancellationReason,
     DateTime CreatedAt,
-    string Currency = "DOP");
+    string Currency = "DOP",
+    // Primera foto del vehículo, o null.
+    Guid? CoverPhotoId = null);

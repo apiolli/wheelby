@@ -1,15 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "motion/react";
-import { CircleAlert } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 
-import { errorMessage } from "@/api/errors";
 import { cancelReservation, listMyReservations } from "@/api/wheelby.api";
 import EmptyState from "@/components/custom/EmptyState";
+import { SectionError } from "@/components/custom/ErrorStates";
+import { ReservationListSkeleton } from "@/components/custom/Skeletons";
 import { CalendarIllustration } from "@/components/custom/Illustrations";
 import Pagination from "@/components/custom/Pagination";
 import SectionHeading from "@/components/custom/SectionHeading";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { queryKeys } from "@/lib/query-keys";
 import { pageParam } from "@/lib/schemas";
@@ -63,8 +62,12 @@ export default function ReservationsSection() {
         id={`cancel-${r.id}`}
         optional
         trigger={
-          <Button variant="destructive-outline" size="sm">
-            Cancelar reserva
+          <Button
+            variant="destructive-outline"
+            size="sm"
+            className="rounded-full"
+          >
+            Cancelar
           </Button>
         }
         title="¿Cancelar esta reserva?"
@@ -83,28 +86,25 @@ export default function ReservationsSection() {
         description="Tus viajes con sus fechas y su estado."
       />
       {reservations.isPending ? (
-        <ul className="grid gap-3" aria-busy="true">
-          {[0, 1, 2].map((i) => (
-            <li
-              key={i}
-              className="h-28 animate-pulse rounded-2xl bg-secondary"
-            />
-          ))}
-        </ul>
+        <ReservationListSkeleton />
       ) : reservations.isError ? (
-        <Alert variant="destructive">
-          <CircleAlert />
-          <AlertDescription>
-            {errorMessage(reservations.error)}
-          </AlertDescription>
-        </Alert>
+        <SectionError
+          error={reservations.error}
+          onRetry={() => reservations.refetch()}
+        />
       ) : items.length === 0 ? (
         <EmptyState
           illustration={<CalendarIllustration className="w-37.5" />}
-          title="Aún no tienes reservas"
+          title="Aún no has hecho ninguna reserva."
           text="Cuando reserves un vehículo, aparecerá aquí con sus fechas y su estado."
           action={
-            <Link to="/" className={buttonVariants({ size: "lg" })}>
+            <Link
+              to="/buscar"
+              className={buttonVariants({
+                size: "lg",
+                className: "rounded-full",
+              })}
+            >
               Explorar vehículos
             </Link>
           }

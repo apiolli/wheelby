@@ -112,12 +112,17 @@ internal sealed class VehicleReadStore(WheelbyDbContext db) : IVehicleReadStore
             .ToListAsync(cancellationToken);
     }
 
-    private static IQueryable<VehicleSummaryDTO> Project(IQueryable<Vehicle> query)
+    private IQueryable<VehicleSummaryDTO> Project(IQueryable<Vehicle> query)
         => query.Select(v => new VehicleSummaryDTO(
             v.Id, v.OwnerId, v.Brand, v.Model, v.Year, v.Plate, v.PricePerDay, v.CreatedAt,
-            "DOP", null, null, null, v.Type, v.City, v.Description, v.IsActive));
+            "DOP", null, null, null, v.Type, v.City, v.Description, v.IsActive,
+            db.VehiclePhotos
+                .Where(p => p.VehicleId == v.Id)
+                .OrderBy(p => p.AddedAt).ThenBy(p => p.Id)
+                .Select(p => (Guid?)p.DocumentId)
+                .FirstOrDefault()));
 
-    private static async Task<PagedResult<VehicleSummaryDTO>> ToPageAsync(
+    private async Task<PagedResult<VehicleSummaryDTO>> ToPageAsync(
         IOrderedQueryable<Vehicle> query,
         int page,
         int pageSize,

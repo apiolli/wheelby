@@ -66,11 +66,12 @@ export const changePasswordSchema = z
 
 // Mínimo del motivo que acompaña un rechazo o una cancelación del anfitrión.
 export const MIN_REASON = 10;
+export const MAX_REASON = 500;
 export const reasonSchema = z
   .string()
   .trim()
   .min(MIN_REASON, `Escribe al menos ${MIN_REASON} caracteres.`)
-  .max(500, "El motivo no puede pasar de 500 caracteres.");
+  .max(MAX_REASON, `El motivo no puede pasar de ${MAX_REASON} caracteres.`);
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -201,3 +202,27 @@ export const documentSchema = z
     (f) => f.name.length <= 255,
     "El nombre del archivo es demasiado largo.",
   );
+
+// Licencia, matrícula, actas de entrega y devolución: fotos o PDF.
+export const DOCUMENT_TYPES = {
+  "application/pdf": "PDF",
+  "image/jpeg": "JPG",
+  "image/png": "PNG",
+  "image/webp": "WebP",
+} as const;
+export const DOCUMENT_ACCEPT = Object.keys(DOCUMENT_TYPES).join(",");
+export const DOCUMENT_FORMATS_LABEL = `${Object.values(DOCUMENT_TYPES).join(", ")} · hasta 10 MB`;
+
+export const typedDocumentSchema = documentSchema.refine(
+  (f) => f.type in DOCUMENT_TYPES,
+  "Solo se admiten PDF, JPG, PNG o WebP.",
+);
+
+// Fotos de vehículos: solo imágenes, mismo límite de 10 MB.
+export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const PHOTO_ACCEPT = PHOTO_TYPES.join(",");
+export const MAX_PHOTOS = 10;
+export const photoSchema = documentSchema.refine(
+  (f) => PHOTO_TYPES.includes(f.type),
+  "Solo se admiten fotos JPG, PNG o WebP.",
+);

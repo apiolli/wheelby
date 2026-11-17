@@ -7,19 +7,20 @@ import {
   useScroll,
   useTransform,
 } from "motion/react";
-import { cn } from "cn";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 
-import { buttonVariants } from "@/components/ui/button";
+import { useHostStatus } from "@/features/host/useHostStatus";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useScrolled } from "@/hooks/useScrolled";
 import { HEADER_SPRING, SEARCH_LAYOUT_ID } from "@/lib/motion";
 import { parseCatalogParams, rangeSchema } from "@/lib/schemas";
 import { isAdmin, showToast } from "@/stores/session.store";
 import type { User } from "@/types/types";
-import { CompactSearch, MobileSearchPill } from "./CompactSearch";
+import { CompactSearch } from "./CompactSearch";
 import Logo from "./Logo";
-import { ADMIN_HEADER_NAV, MEMBER_NAV } from "./nav";
+import { AdminPanelChip, HostCta } from "./HostCta";
+import MobileHeader from "./MobileHeader";
+import { ADMIN_HEADER_NAV, memberNav } from "./nav";
 import NavTabs from "./NavTabs";
 import SearchBar from "./SearchBar";
 import { toSearchParams, type SearchField, type SearchQuery } from "./search";
@@ -31,7 +32,6 @@ const COLLAPSE_AFTER_PX = 40;
 // Alturas del header en cada estado.
 const HEIGHT = {
   desktop: { open: 176, compact: 80 },
-  mobile: { top: 140, scrolled: 72, expanded: 272 },
 };
 
 // Entrada y salida de las pestañas.
@@ -56,27 +56,32 @@ const queryFrom = (params: URLSearchParams): SearchQuery => {
  */
 export default function SiteHeader({ user }: { user: User }) {
   const admin = isAdmin(user);
-  return admin ? <AdminHeader user={user} /> : <MemberHeader user={user} />;
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  if (admin) return <AdminHeader user={user} />;
+  // En móvil, header compacto que se oculta al bajar y búsqueda a pantalla completa.
+  return isDesktop ? <MemberHeader user={user} /> : <MobileHeader />;
 }
 
 function MemberHeader({ user }: { user: User }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [params] = useSearchParams();
-  const isDesktop = useMediaQuery("(min-width: 768px)");
   const scrolled = useScrolled();
   const reduceMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
   const [focusField, setFocusField] = useState<SearchField | null>(null);
+  const host = useHostStatus();
   const expandedAtY = useRef(0);
 
-  // El borrador de la búsqueda se reinicia cuando cambia la búsqueda de la URL (en el catálogo).
-  const urlKey = pathname === "/" ? params.toString() : "";
+  // El borrador de la búsqueda se reinicia cuando cambia la búsqueda de la URL (en el catálogo
+  // y en los resultados).
+  const onSearchPage = pathname === "/" || pathname === "/buscar";
+  const urlKey = onSearchPage ? params.toString() : "";
   const [synced, setSynced] = useState(urlKey);
   const [query, setQuery] = useState<SearchQuery>(() => queryFrom(params));
   if (urlKey !== synced) {
     setSynced(urlKey);
-    if (pathname === "/") setQuery(queryFrom(params));
+    if (onSearchPage) setQuery(queryFrom(params));
   }
 
   // Sombra progresiva ligada al scroll, sin renders de React.
@@ -89,17 +94,8 @@ function MemberHeader({ user }: { user: User }) {
 
   // En escritorio la barra grande está visible arriba del todo o cuando se despliega.
   const desktopOpen = !scrolled || expanded;
-  const showMobileTabs = !scrolled && !expanded;
 
-  const height = isDesktop
-    ? desktopOpen
-      ? HEIGHT.desktop.open
-      : HEIGHT.desktop.compact
-    : expanded
-      ? HEIGHT.mobile.expanded
-      : scrolled
-        ? HEIGHT.mobile.scrolled
-        : HEIGHT.mobile.top;
+  const height = desktopOpen ? HEIGHT.desktop.open : HEIGHT.desktop.compact;
 
   const expand = (field: SearchField) => {
     expandedAtY.current = window.scrollY;
@@ -131,7 +127,7 @@ function MemberHeader({ user }: { user: User }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  // La búsqueda lleva al catálogo con las fechas y la moneda en la URL.
+  // La búsqueda lleva a los resultados con las fechas y la moneda en la URL.
   const submit = (q: SearchQuery) => {
     const range = rangeSchema.safeParse(q);
     if (!range.success) {
@@ -139,7 +135,7 @@ function MemberHeader({ user }: { user: User }) {
       return;
     }
     collapse();
-    navigate({ pathname: "/", search: `?${toSearchParams(q)}` });
+    navigate({ pathname: "/buscar", search: `?${toSearchParams(q)}` });
   };
 
   const userMenu = <UserMenu user={user} />;
@@ -153,129 +149,57 @@ function MemberHeader({ user }: { user: User }) {
         style={{ boxShadow }}
         className="fixed inset-x-0 top-0 z-40 overflow-hidden border-b border-border-soft bg-background"
       >
-        {isDesktop ? (
-          /* ---------- Escritorio ---------- */
-          <>
-            <div className="grid h-20 grid-cols-[1fr_auto_1fr] items-center gap-x-6 px-gutter">
-              <Logo variant="responsive" className="justify-self-start" />
+        <div className="grid h-20 grid-cols-[1fr_auto_1fr] items-center gap-x-6 px-gutter">
+          <Logo variant="responsive" className="justify-self-start" />
 
-              <div className="relative flex h-full min-w-120 items-center justify-center">
-                <AnimatePresence initial={false}>
-                  {desktopOpen && (
-                    <m.div key="tabs" {...TABS_MOTION} className="h-full">
-                      <NavTabs items={MEMBER_NAV} className="gap-6 lg:gap-8" />
-                    </m.div>
-                  )}
-                </AnimatePresence>
-                <AnimatePresence initial={false}>
-                  {!desktopOpen && (
-                    <CompactSearch
-                      key="compact"
-                      value={query}
-                      onPick={expand}
-                      layoutId={SEARCH_LAYOUT_ID}
-                      className="absolute inset-0 m-auto w-max"
-                    />
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <div className="flex items-center justify-end gap-1">
-                {/* Es una invitación, no la acción principal: botón ghost. */}
-                <Link
-                  to="/perfil/anfitrion"
-                  className={cn(
-                    buttonVariants({ variant: "ghost" }),
-                    "hidden h-11 px-3.5 text-sm xl:inline-flex",
-                  )}
-                >
-                  Conviértete en anfitrión
-                </Link>
-                {userMenu}
-              </div>
-            </div>
-
-            <div className="flex justify-center px-gutter pt-1">
-              <AnimatePresence initial={false}>
-                {desktopOpen && (
-                  <SearchBar
-                    key="search"
-                    layoutId={SEARCH_LAYOUT_ID}
-                    autoFocusField={focusField}
-                    value={query}
-                    onChange={setQuery}
-                    onSubmit={submit}
-                  />
-                )}
-              </AnimatePresence>
-            </div>
-          </>
-        ) : (
-          /* ---------- Móvil ---------- */
-          <>
-            <div className="relative flex h-18 items-center gap-3 px-gutter">
-              <Logo variant="symbol" />
-              <AnimatePresence initial={false}>
-                {!expanded && (
-                  <MobileSearchPill
-                    key="pill"
-                    value={query}
-                    onPick={expand}
-                    layoutId={SEARCH_LAYOUT_ID}
-                    className="flex-1"
-                  />
-                )}
-              </AnimatePresence>
-              <AnimatePresence initial={false}>
-                {expanded && (
-                  <m.p
-                    key="title"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="pointer-events-none absolute inset-x-0 text-center text-[15px] font-bold"
-                  >
-                    Busca tu vehículo
-                  </m.p>
-                )}
-              </AnimatePresence>
-              <div className="ml-auto">{userMenu}</div>
-            </div>
-
+          <div className="relative flex h-full min-w-120 items-center justify-center">
             <AnimatePresence initial={false}>
-              {showMobileTabs && (
-                <m.div
-                  key="tabs"
-                  {...TABS_MOTION}
-                  className="h-17 border-t border-border-soft px-gutter"
-                >
-                  <NavTabs items={MEMBER_NAV} className="justify-around" />
+              {desktopOpen && (
+                <m.div key="tabs" {...TABS_MOTION} className="h-full">
+                  <NavTabs
+                    items={memberNav(host.status)}
+                    className="gap-6 lg:gap-8"
+                  />
                 </m.div>
               )}
             </AnimatePresence>
+            <AnimatePresence initial={false}>
+              {!desktopOpen && (
+                <CompactSearch
+                  key="compact"
+                  value={query}
+                  onPick={expand}
+                  layoutId={SEARCH_LAYOUT_ID}
+                  className="absolute inset-0 m-auto w-max"
+                />
+              )}
+            </AnimatePresence>
+          </div>
 
-            <div className="absolute inset-x-0 top-18 px-gutter pt-1">
-              <AnimatePresence initial={false}>
-                {expanded && (
-                  <SearchBar
-                    key="search"
-                    layoutId={SEARCH_LAYOUT_ID}
-                    orientation="stack"
-                    idPrefix="mq"
-                    autoFocusField={focusField}
-                    value={query}
-                    onChange={setQuery}
-                    onSubmit={submit}
-                  />
-                )}
-              </AnimatePresence>
-            </div>
-          </>
-        )}
+          <div className="flex items-center justify-end gap-1">
+            <HostCta className="hidden xl:inline-flex" />
+            {userMenu}
+          </div>
+        </div>
+
+        <div className="flex justify-center px-gutter pt-1">
+          <AnimatePresence initial={false}>
+            {desktopOpen && (
+              <SearchBar
+                key="search"
+                layoutId={SEARCH_LAYOUT_ID}
+                autoFocusField={focusField}
+                value={query}
+                onChange={setQuery}
+                onSubmit={submit}
+              />
+            )}
+          </AnimatePresence>
+        </div>
       </m.header>
 
       {/* Reserva el espacio del header completo: el contenido empieza debajo */}
-      <div aria-hidden="true" className="h-35 md:h-44" />
+      <div aria-hidden="true" className="h-44" />
 
       {/* Fondo oscurecido mientras la búsqueda está desplegada */}
       <AnimatePresence>
@@ -321,7 +245,8 @@ function AdminHeader({ user }: { user: User }) {
             items={ADMIN_HEADER_NAV}
             className="justify-center gap-6 lg:gap-8"
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-2">
+            <AdminPanelChip className="hidden lg:inline-flex" />
             <UserMenu user={user} />
           </div>
         </div>

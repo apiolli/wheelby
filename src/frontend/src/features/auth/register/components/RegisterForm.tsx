@@ -140,18 +140,21 @@ export default function RegisterForm({ onSwitch, onToast }: RegisterFormProps) {
             )}
           >
             Acepto los{" "}
+            {/* Pestaña nueva: así no se pierde lo escrito en el formulario. */}
             <a
-              href="#"
+              href="/terminos"
+              target="_blank"
+              rel="noopener"
               className="font-semibold text-primary underline underline-offset-2"
-              onClick={(e) => e.preventDefault()}
             >
               Términos
             </a>{" "}
             y la{" "}
             <a
-              href="#"
+              href="/privacidad"
+              target="_blank"
+              rel="noopener"
               className="font-semibold text-primary underline underline-offset-2"
-              onClick={(e) => e.preventDefault()}
             >
               Política de Privacidad
             </a>

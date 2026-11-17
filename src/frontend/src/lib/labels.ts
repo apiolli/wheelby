@@ -34,19 +34,21 @@ export const USER_STATUS_VARIANT: Record<UserStatus, Variant> = {
 };
 
 export const RESERVATION_STATUS_LABEL: Record<ReservationStatus, string> = {
-  [ReservationStatus.Pending]: "Pendiente",
+  [ReservationStatus.Pending]: "Solicitada",
   [ReservationStatus.Confirmed]: "Confirmada",
   [ReservationStatus.InProgress]: "En curso",
   [ReservationStatus.Completed]: "Completada",
   [ReservationStatus.Cancelled]: "Cancelada",
 };
 
+// Solicitada mostaza, Confirmada teal, En curso teal claro (con pulso), Completada verde y
+// Cancelada gris.
 export const RESERVATION_STATUS_VARIANT: Record<ReservationStatus, Variant> = {
   [ReservationStatus.Pending]: "highlight",
-  [ReservationStatus.Confirmed]: "success",
+  [ReservationStatus.Confirmed]: "primary",
   [ReservationStatus.InProgress]: "soft",
-  [ReservationStatus.Completed]: "muted",
-  [ReservationStatus.Cancelled]: "destructive",
+  [ReservationStatus.Completed]: "success",
+  [ReservationStatus.Cancelled]: "muted",
 };
 
 export const REQUEST_STATUS_LABEL: Record<PermissionRequestStatus, string> = {
