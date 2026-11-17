@@ -30,6 +30,10 @@ internal sealed class ConfirmReservationCommandHandler(
         if (vehicle.OwnerId != currentUser.Id)
             throw new ForbiddenException("Solo el dueño del vehículo puede confirmar la reserva.", WheelbyErrorCodes.ReservationNotHost);
 
+        if (!vehicle.IsActive)
+            throw new ConflictException(
+                "El vehículo está desactivado; actívalo o rechaza la solicitud.", WheelbyErrorCodes.VehicleInactive);
+
         // Nueva comprobación de solape bloqueante, excluyendo la propia reserva.
         var hasOverlap = await reservations.HasBlockingOverlapAsync(
             reservation.VehicleId,
@@ -41,7 +45,7 @@ internal sealed class ConfirmReservationCommandHandler(
         if (hasOverlap)
             throw new ConflictException("El vehículo ya tiene una reserva bloqueante que solapa esas fechas.", WheelbyErrorCodes.VehicleOverlap);
 
-        reservation.TransitionTo(ReservationStatus.Confirmed, ReservationActor.Host, clock.UtcNow);
+        reservation.TransitionTo(ReservationStatus.Confirmed, ReservationActor.Host, clock.UtcNow, actorId: currentUser.Id);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Unit.Value;

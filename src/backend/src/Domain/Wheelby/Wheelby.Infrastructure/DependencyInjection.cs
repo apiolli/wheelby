@@ -27,15 +27,7 @@ public static class DependencyInjection
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(applicationAssembly));
         services.AddValidatorsFromAssembly(applicationAssembly, includeInternalTypes: true);
 
-        services.AddDbContext<WheelbyDbContext>(options =>
-            options.UseNpgsql(connectionString, npgsql =>
-                npgsql.MigrationsHistoryTable("__EFMigrationsHistory", WheelbyDbContext.Schema)));
-
-        services.AddScoped<IVehicleRepository, VehicleRepository>();
-        services.AddScoped<IReservationRepository, ReservationRepository>();
-        services.AddScoped<IVehicleReadStore, VehicleReadStore>();
-        services.AddScoped<IReservationReadStore, ReservationReadStore>();
-        services.AddScoped<IWheelbyUnitOfWork, WheelbyUnitOfWork>();
+        AddPersistence(services, connectionString);
 
         // Catálogo de permisos: cada módulo registra los suyos (inversión de dependencia).
         services.AddSingleton<IPermissionDefinition, PublishVehiclePermissionDefinition>();
@@ -50,6 +42,40 @@ public static class DependencyInjection
         });
 
         return services;
+    }
+
+    // Registro para el Worker: persistencia y solo los handlers marcados con
+    // IWorkerHandler (expirar solicitudes y avisar por correo). Los demás piden
+    // ICurrentUser u otros módulos que el Worker no tiene.
+    public static IServiceCollection AddWheelbyWorker(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("Postgres")
+            ?? throw new InvalidOperationException(
+                "Falta la cadena de conexión ConnectionStrings__Postgres.");
+
+        services.AddMediatR(cfg =>
+        {
+            cfg.RegisterServicesFromAssembly(typeof(PublishVehicleCommand).Assembly);
+            cfg.TypeEvaluator = type => typeof(IWorkerHandler).IsAssignableFrom(type);
+        });
+
+        AddPersistence(services, connectionString);
+        return services;
+    }
+
+    private static void AddPersistence(IServiceCollection services, string connectionString)
+    {
+        services.AddDbContext<WheelbyDbContext>(options =>
+            options.UseNpgsql(connectionString, npgsql =>
+                npgsql.MigrationsHistoryTable("__EFMigrationsHistory", WheelbyDbContext.Schema)));
+
+        services.AddScoped<IVehicleRepository, VehicleRepository>();
+        services.AddScoped<IReservationRepository, ReservationRepository>();
+        services.AddScoped<IReviewRepository, ReviewRepository>();
+        services.AddScoped<IVehicleReadStore, VehicleReadStore>();
+        services.AddScoped<IReservationReadStore, ReservationReadStore>();
+        services.AddScoped<IWheelbyUnitOfWork, WheelbyUnitOfWork>();
     }
 
     // Aplica la migración del esquema wheelby al arrancar.

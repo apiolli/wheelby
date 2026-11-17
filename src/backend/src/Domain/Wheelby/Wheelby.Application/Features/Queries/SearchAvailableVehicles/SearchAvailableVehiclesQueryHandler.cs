@@ -25,6 +25,8 @@ internal sealed class SearchAvailableVehiclesQueryHandler(
             query.From,
             query.To,
             currentUser.Id,
+            string.IsNullOrWhiteSpace(query.City) ? null : query.City.Trim(),
+            query.Type,
             query.Page,
             query.PageSize,
             cancellationToken);

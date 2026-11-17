@@ -24,8 +24,8 @@ Un Estándar **no** puede publicar hasta que un Administrador le apruebe el perm
 
 | Ruta | Grupo y política | Qué hace |
 | ---- | ---------------- | -------- |
-| `POST /vehicles` | `/vehicles`, `RequireStandard` | F1: publica un vehículo. 201 con `{ "id" }`. |
-| `GET /vehicles/available?from=&to=&page=&pageSize=&currency=` | `/vehicles`, `RequireStandard` | F2: lista vehículos disponibles paginados. 200. `currency` (opcional) convierte los precios, que están en DOP. |
+| `POST /vehicles` | `/vehicles`, `RequireStandard` | F1: publica un vehículo. 201 con `{ "id" }`. `type` (por defecto `Car`), `city` y `description` son opcionales. |
+| `GET /vehicles/available?from=&to=&page=&pageSize=&currency=&city=&type=` | `/vehicles`, `RequireStandard` | F2: lista vehículos activos disponibles, paginados. 200. `currency` (opcional) convierte los precios, que están en DOP. `city` (sin distinguir mayúsculas) y `type` (`Car`, `Motorcycle`, `Bicycle`, `Scooter`, `Other`) filtran. |
 | `GET /vehicles/mine?page=&pageSize=` | `/vehicles`, `RequireStandard` | Vehículos publicados por el anfitrión autenticado, paginados. 200. |
 | `GET /vehicles/{id}` | `/vehicles`, `RequireStandard` | Ficha del vehículo. 200, o 404 con `code: "vehicle.not-found"`. |
 | `GET /vehicles/{id}/availability?from=&to=` | `/vehicles`, `RequireStandard` | Rangos bloqueados (`Confirmed` e `InProgress`) que tocan `[from, to)`, ordenados por inicio. 200. Rango máximo 366 días. |
@@ -39,6 +39,19 @@ Un Estándar **no** puede publicar hasta que un Administrador le apruebe el perm
 | `POST /reservations/{id}/cancel` | `/reservations`, `RequireStandard` | F5: cancela una reserva (`{ "reason": "..." }`). 204. |
 | `GET /admin/reservations?status=&page=&pageSize=` | `/admin/reservations`, `RequireAdministrator` | F6: lista todas las reservas, opcionalmente filtradas por estado. 200. |
 | `GET /admin/reservations/{id}` | `/admin/reservations`, `RequireAdministrator` | Detalle de cualquier reserva para el Administrador. |
+| `PUT /vehicles/{id}` | `/vehicles`, `RequireStandard` | Edita el vehículo (solo el dueño). Cuerpo: `brand`, `model`, `year`, `plate`, `pricePerDay`, `type`, `city`, `description`. 204. Placa repetida → 409. El precio nuevo no cambia reservas ya hechas. |
+| `POST /vehicles/{id}/deactivate` · `/activate` | `/vehicles`, `RequireStandard` | Solo el dueño. Inactivo: no aparece en la búsqueda y no acepta reservas ni confirmaciones (409 `vehicle.inactive`). No se desactiva con reservas `Confirmed` o `InProgress` (409). |
+| `GET /vehicles/{id}/photos` | `/vehicles`, `RequireStandard` | Lista las fotos (`documentId`, `addedAt`). |
+| `POST /vehicles/{id}/photos` | `/vehicles`, `RequireStandard` | Vincula una imagen subida antes con `POST /documents` (`{ "documentId" }`). Solo el dueño, solo imágenes propias, máximo 10. 204. |
+| `DELETE /vehicles/{id}/photos/{documentId}` | `/vehicles`, `RequireStandard` | Desvincula la foto (el documento sigue en Documents). 204. |
+| `GET /vehicles/{id}/photos/{documentId}` | `/vehicles`, `RequireStandard` | Devuelve la imagen a cualquier usuario con sesión, solo si está vinculada a ese vehículo. |
+| `GET /vehicles/{id}/reviews?page=&pageSize=` | `/vehicles`, `RequireStandard` | Reseñas de inquilinos sobre el vehículo, paginadas. |
+| `GET /reservations/{id}/history` | `/reservations` y `/admin/reservations` | Línea de tiempo de estados (`from`, `to`, `actor`, `actorId`, `reason`, `at`). |
+| `POST /reservations/{id}/documents` | `/reservations`, `RequireStandard` | Adjunta un documento propio (`{ "documentId", "kind": "Delivery" \| "Return" }`). Solo participantes, reserva `Confirmed`, `InProgress` o `Completed`, máximo 20. 204. |
+| `GET /reservations/{id}/documents` | `/reservations` y `/admin/reservations` | Documentos adjuntos con nombre, tipo y tamaño. |
+| `GET /reservations/{id}/documents/{documentId}/content` | `/reservations` y `/admin/reservations` | Descarga el archivo; lo ve cualquier participante, no solo quien lo subió. |
+| `POST /reservations/{id}/reviews` | `/reservations`, `RequireStandard` | Reseña (`{ "rating": 1-5, "comment" }`). Una por participante, solo `Completed`, no editable. 201 con `{ "id" }`. |
+| `GET /reservations/{id}/reviews` | `/reservations` y `/admin/reservations` | Reseñas de la reserva (las dos partes). |
 
 En el borde HTTP las fechas llegan como `DateTimeOffset` y se convierten a `DateTime` UTC antes de crear el comando.
 
@@ -64,6 +77,13 @@ Sin sesión → **401**. Con sesión pero sin el rol del grupo → **403**.
 | `reservation.transition-not-allowed` | 403 | El actor o la condición de la transición no se cumplen. |
 | `vehicle.not-found`, `reservation.not-found` | 404 | No existe (o no puedes verla). |
 | `vehicle.plate-taken` | 409 | Placa repetida. |
+| `vehicle.not-owner` | 403 | Editar, activar o tocar fotos de un vehículo ajeno. |
+| `vehicle.inactive` | 409 | Reservar o confirmar sobre un vehículo desactivado. |
+| `vehicle.has-active-reservations` | 409 | Desactivar con reservas `Confirmed` o `InProgress`. |
+| `vehicle.photo-invalid`, `vehicle.photo-limit`, `vehicle.photo-not-found` | 400, 409, 404 | Foto que no es imagen, más de 10, o no vinculada. |
+| `document.not-found`, `document.not-owner` | 404, 403 | Documento inexistente o subido por otra persona. |
+| `reservation.document-not-allowed`, `reservation.document-duplicate`, `reservation.document-limit` | 409 | Adjuntar a una reserva `Pending`/`Cancelled`, repetido o más de 20. |
+| `review.not-allowed`, `review.duplicate`, `review.invalid-data` | 409, 409, 400 | Reseñar sin `Completed`, por segunda vez o con datos inválidos. |
 | `vehicle.overlap` | 409 | Solapa con una reserva `Confirmed` o `InProgress`. |
 | `reservation.invalid-transition` | 409 | Transición inexistente o desde un estado terminal. |
 | `internal` | 500 | Error no controlado. |
@@ -255,9 +275,13 @@ Con `StartDate` en el pasado y `EndDate` en el futuro respecto a `utcNow`, `POST
 - **El dominio no lee el reloj ni el usuario:** recibe `utcNow` por parámetro.
 - **Los errores no exponen detalles internos (RD-08):** `GlobalExceptionHandler` convierte las excepciones de dominio en HTTP sin detalles internos.
 - **Publicar un vehículo depende del permiso `wheelby.publish-vehicle`**, comprobado solo por `IPermissionChecker` (RF-NEG-06).
-- **Datos de Wheelby persisten tras reiniciar la API (RD-09):** migraciones `AddVehicles` y `FreezeReservationPrice` aplicadas al arrancar. `FreezeReservationPrice` rellena las reservas anteriores con el precio actual del vehículo (no había registro del precio original).
-- **Solape concurrente:** dos confirmaciones simultáneas sobre fechas que chocan pueden pasar ambas `HasBlockingOverlapAsync`. El cierre previsto es una restricción `EXCLUDE` (ver `pendientes-backend.md`).
+- **Datos de Wheelby persisten tras reiniciar la API (RD-09):** migraciones `AddVehicles`, `FreezeReservationPrice`, `ReservationHistoryDocumentsReviewsPhotos` y `NoBlockingOverlap` aplicadas al arrancar. `ReservationHistoryDocumentsReviewsPhotos` crea la fila inicial del historial de las reservas existentes y, si ya no están `Pending`, una fila `System` con su estado actual (no hay registro de quién lo cambió). `FreezeReservationPrice` rellena las reservas anteriores con el precio actual del vehículo (no había registro del precio original).
+- **Solape concurrente cerrado en la base:** la migración `NoBlockingOverlap` crea la restricción `EXCLUDE` `no_blocking_overlap` (requiere `btree_gist`) sobre `VehicleId` y `tstzrange(StartDate, EndDate, '[)')` para `Confirmed` e `InProgress`. Si dos confirmaciones simultáneas pasan `HasBlockingOverlapAsync`, la base rechaza la segunda y `WheelbyUnitOfWork` responde 409 `vehicle.overlap`. Si al aplicar la migración ya hay solapes en los datos, falla: hay que cancelar una de las reservas antes.
+- **Historial y avisos (RF-NEG-07):** `Reservation.TransitionTo` agrega una fila a `ReservationStatusHistory` y el evento `ReservationStatusChanged`. `WheelbyUnitOfWork` publica los eventos después de guardar; `NotifyReservationStatusChangedHandler` encola un correo para la contraparte de quien actuó (a los dos si actúa el sistema) y el Worker lo envía. El correo es un efecto secundario: si la cola falla se registra y la operación no se revierte. No es una bandeja transaccional (outbox): si la API cae justo entre guardar y encolar, ese aviso se pierde.
+- **Expiración de solicitudes:** el Worker ejecuta `ExpirePendingReservationsCommand` cada `Worker__ReservationExpiryIntervalSeconds` (300 por defecto). Las `Pending` cuyo inicio ya llegó pasan a `Cancelled` con actor `System` y motivo fijo.
+- **Documentos y fotos sin tocar el Core (RD-03):** Wheelby guarda solo `DocumentId` y lee los archivos con `IDocumentAccess` (Documents.Contracts). La regla de quién ve el archivo es de Wheelby: participantes de la reserva, o cualquier usuario con sesión para fotos vinculadas a un vehículo. `GET /documents/{id}/content` sigue sirviendo solo al dueño.
+- **Correos de los participantes:** `IUserDirectory` (AccessControl.Contracts) devuelve nombre y correo de un usuario activo.
 
 ## Fuera de alcance de esta práctica
 
-Notificaciones (RF-NEG-07), reportes (RF-NEG-08), adjuntar documentos (RF-NEG-10), verificación de identidad del anfitrión (`MemberVerification`, cédula, hash), fotos de vehículos, y restricción `EXCLUDE` de PostgreSQL contra solapamientos concurrentes (quedan como limitación documentada).
+Reportes (RF-NEG-08), verificación de identidad del anfitrión (`MemberVerification`, cédula, hash), promedio de calificación en la ficha del vehículo, y la convención de fechas (día completo frente a instante UTC), pendiente de decisión.

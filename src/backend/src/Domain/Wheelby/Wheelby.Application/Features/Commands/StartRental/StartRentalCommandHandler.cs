@@ -30,7 +30,7 @@ internal sealed class StartRentalCommandHandler(
         if (vehicle.OwnerId != currentUser.Id)
             throw new ForbiddenException("Solo el dueño del vehículo puede iniciar el alquiler.", WheelbyErrorCodes.ReservationNotHost);
 
-        reservation.TransitionTo(ReservationStatus.InProgress, ReservationActor.Host, clock.UtcNow);
+        reservation.TransitionTo(ReservationStatus.InProgress, ReservationActor.Host, clock.UtcNow, actorId: currentUser.Id);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Unit.Value;

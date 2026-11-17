@@ -40,7 +40,10 @@ internal sealed class PublishVehicleCommandHandler(
             command.Year,
             command.Plate,
             command.PricePerDay,
-            clock.UtcNow);
+            clock.UtcNow,
+            command.Type ?? VehicleType.Car,
+            command.City,
+            command.Description);
 
         await vehicles.AddAsync(vehicle, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

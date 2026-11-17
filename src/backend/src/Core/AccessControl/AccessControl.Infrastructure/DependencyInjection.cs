@@ -15,6 +15,22 @@ namespace AccessControl.Infrastructure;
 
 public static class DependencyInjection
 {
+    // Solo el directorio de usuarios, sin autenticación ni endpoints: para el Worker,
+    // que necesita los correos de los participantes pero no atiende peticiones HTTP.
+    public static IServiceCollection AddAccessControlUserDirectory(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("Postgres")
+            ?? throw new InvalidOperationException(
+                "Falta la cadena de conexión ConnectionStrings__Postgres.");
+
+        services.AddDbContext<AccessControlDbContext>(options =>
+            options.UseNpgsql(connectionString, npgsql =>
+                npgsql.MigrationsHistoryTable("__EFMigrationsHistory", AccessControlDbContext.Schema)));
+        services.AddScoped<IUserDirectory, UserDirectory>();
+        return services;
+    }
+
     public static IServiceCollection AddAccessControl(
         this IServiceCollection services, IConfiguration configuration)
     {
@@ -42,6 +58,7 @@ public static class DependencyInjection
         services.AddSingleton<IActivationLinkBuilder, ActivationLinkBuilder>();
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<IUserReadStore, UserReadStore>();
+        services.AddScoped<IUserDirectory, UserDirectory>();
 
         // JWT
         services.AddOptions<JwtOptions>()

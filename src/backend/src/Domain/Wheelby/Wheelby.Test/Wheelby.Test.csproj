@@ -32,6 +32,8 @@
     <ProjectReference Include="..\..\..\Core\Permissions\Permissions.Contracts\Permissions.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Core\Permissions\Permissions.Infrastructure\Permissions.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\Core\AccessControl\AccessControl.Contracts\AccessControl.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Core\Notifications\Notifications.Contracts\Notifications.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Core\Documents\Documents.Contracts\Documents.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
     <ProjectReference Include="..\..\..\Shared\SharedKernel\SharedKernel.csproj" />
   </ItemGroup>

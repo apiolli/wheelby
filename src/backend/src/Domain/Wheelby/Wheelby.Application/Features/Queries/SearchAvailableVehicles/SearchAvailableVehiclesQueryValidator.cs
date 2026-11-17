@@ -1,4 +1,5 @@
 using FluentValidation;
+using Wheelby.Domain.Vehicles;
 
 namespace Wheelby.Application.Features.SearchAvailableVehicles;
 
@@ -28,6 +29,12 @@ internal sealed class SearchAvailableVehiclesQueryValidator : AbstractValidator<
         RuleFor(x => x.Currency)
             .Matches("^[A-Z]{3}$").When(x => x.Currency is not null)
             .WithMessage("La moneda debe ser un código de 3 letras, por ejemplo USD.");
+
+        RuleFor(x => x.City).MaximumLength(Vehicle.CityMaxLength)
+            .WithMessage($"La ciudad no puede exceder los {Vehicle.CityMaxLength} caracteres.");
+
+        RuleFor(x => x.Type).IsInEnum().When(x => x.Type is not null)
+            .WithMessage("El tipo debe ser Car, Motorcycle, Bicycle, Scooter u Other.");
 
         RuleFor(x => x.Page).GreaterThanOrEqualTo(1).WithMessage("La página debe ser 1 o mayor.");
         RuleFor(x => x.PageSize).InclusiveBetween(1, MaxPageSize)

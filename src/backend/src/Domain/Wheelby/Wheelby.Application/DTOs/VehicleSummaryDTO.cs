@@ -1,3 +1,5 @@
+using Wheelby.Domain.Vehicles;
+
 namespace Wheelby.Application.DTOs;
 
 // Los precios publicados están en pesos dominicanos (DOP). Si la búsqueda pide
@@ -14,4 +16,8 @@ public sealed record VehicleSummaryDTO(
     string Currency = "DOP",
     decimal? ConvertedPricePerDay = null,
     string? ConvertedCurrency = null,
-    decimal? ExchangeRate = null);
+    decimal? ExchangeRate = null,
+    VehicleType Type = VehicleType.Car,
+    string? City = null,
+    string? Description = null,
+    bool IsActive = true);

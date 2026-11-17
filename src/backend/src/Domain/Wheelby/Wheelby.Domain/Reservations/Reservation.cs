@@ -1,4 +1,5 @@
 using SharedKernel.Domain;
+using Wheelby.Domain.Reservations.Events;
 using Wheelby.Domain.Reservations.Exceptions;
 
 namespace Wheelby.Domain.Reservations;
@@ -23,6 +24,11 @@ public sealed class Reservation : AggregateRoot<Guid>
     public int Days { get; private set; }
     public decimal TotalAmount { get; private set; }
 
+    // Solo las filas agregadas en esta operación; el historial completo se lee
+    // con IReservationReadStore. EF inserta las nuevas al guardar.
+    private readonly List<ReservationStatusChange> _history = [];
+    public IReadOnlyCollection<ReservationStatusChange> History => _history.AsReadOnly();
+
     private Reservation() : base(Guid.Empty) { }
 
     private Reservation(
@@ -44,6 +50,8 @@ public sealed class Reservation : AggregateRoot<Guid>
         PricePerDayAtBooking = pricePerDay;
         Days = CountDays(startDate, endDate);
         TotalAmount = decimal.Round(pricePerDay * Days, 2, MidpointRounding.AwayFromZero);
+
+        Record(null, ReservationStatus.Pending, ReservationActor.Renter, renterId, null, utcNow);
     }
 
     // Días cobrados: cada fracción de 24 h cuenta como un día completo.
@@ -83,17 +91,32 @@ public sealed class Reservation : AggregateRoot<Guid>
         ReservationStatus target,
         ReservationActor actor,
         DateTime utcNow,
-        string? cancellationReason = null)
+        string? cancellationReason = null,
+        Guid? actorId = null)
     {
         // Si la máquina rechaza, el estado no cambia.
         ReservationStateMachine.Validate(this, target, actor, utcNow, cancellationReason);
 
-        if (target == ReservationStatus.Cancelled)
-        {
-            var reason = cancellationReason?.Trim();
-            CancellationReason = string.IsNullOrWhiteSpace(reason) ? null : reason;
-        }
+        var trimmed = cancellationReason?.Trim();
+        var reason = string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
 
+        if (target == ReservationStatus.Cancelled)
+            CancellationReason = reason;
+
+        var from = Status;
         Status = target;
+        Record(from, target, actor, actorId, reason, utcNow);
+    }
+
+    private void Record(
+        ReservationStatus? from,
+        ReservationStatus to,
+        ReservationActor actor,
+        Guid? actorId,
+        string? reason,
+        DateTime at)
+    {
+        _history.Add(new ReservationStatusChange(Id, from, to, actor, actorId, reason, at));
+        AddDomainEvent(new ReservationStatusChanged(Id, from, to, actor, actorId, reason, at));
     }
 }

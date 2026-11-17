@@ -15,6 +15,8 @@ public sealed class InMemoryVehicleReadStore : IVehicleReadStore
         DateTime from,
         DateTime to,
         Guid excludeOwnerId,
+        string? city,
+        Wheelby.Domain.Vehicles.VehicleType? type,
         int page,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -72,4 +74,15 @@ public sealed class InMemoryVehicleReadStore : IVehicleReadStore
 
     public void AgregarReserva(Guid vehicleId, ReservationStatus status, DateTime start, DateTime end)
         => _reservations.Add((vehicleId, status, start, end));
+
+    public Task<IReadOnlyList<VehiclePhotoDTO>> ListPhotosAsync(Guid vehicleId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<VehiclePhotoDTO>>([]);
+
+    public List<ReviewDTO> Resenas { get; } = [];
+
+    public Task<PagedResult<ReviewDTO>> ListReviewsAsync(Guid vehicleId, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var items = Resenas.Where(r => r.VehicleId == vehicleId && r.AuthorRole == ReservationActor.Renter).ToList();
+        return Task.FromResult(new PagedResult<ReviewDTO>(items, page, pageSize, items.Count));
+    }
 }

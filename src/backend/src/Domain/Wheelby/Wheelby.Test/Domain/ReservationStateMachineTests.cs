@@ -440,7 +440,7 @@ public class ReservationStateMachineTests
         var esperado = new (ReservationStatus From, ReservationStatus To, ReservationActor[] Actores)[]
         {
             (ReservationStatus.Pending, ReservationStatus.Confirmed, new[] { ReservationActor.Host }),
-            (ReservationStatus.Pending, ReservationStatus.Cancelled, new[] { ReservationActor.Renter, ReservationActor.Host }),
+            (ReservationStatus.Pending, ReservationStatus.Cancelled, new[] { ReservationActor.Renter, ReservationActor.Host, ReservationActor.System }),
             (ReservationStatus.Confirmed, ReservationStatus.InProgress, new[] { ReservationActor.Host }),
             (ReservationStatus.Confirmed, ReservationStatus.Cancelled, new[] { ReservationActor.Renter, ReservationActor.Host }),
             (ReservationStatus.InProgress, ReservationStatus.Completed, new[] { ReservationActor.Host }),

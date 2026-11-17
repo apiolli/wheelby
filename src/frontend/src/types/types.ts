@@ -78,7 +78,13 @@ export interface Vehicle {
   convertedPricePerDay: number | null;
   convertedCurrency: string | null;
   exchangeRate: number | null;
+  type: VehicleType;
+  city: string | null;
+  description: string | null;
+  isActive: boolean;
 }
+
+export type VehicleType = "Car" | "Motorcycle" | "Bicycle" | "Scooter" | "Other";
 
 // La API serializa el estado de la reserva como texto (JsonStringEnumConverter).
 export const ReservationStatus = {
@@ -129,4 +135,46 @@ export interface DocumentSummary {
   contentType: string;
   sizeBytes: number;
   uploadedAt: string;
+}
+
+// GET /reservations/{id}/history. from es null en la creación; actorId es null si actuó el sistema.
+export type ReservationActor = "Renter" | "Host" | "System";
+export interface ReservationStatusChange {
+  from: ReservationStatus | null;
+  to: ReservationStatus;
+  actor: ReservationActor;
+  actorId: string | null;
+  reason: string | null;
+  at: string;
+}
+
+// GET /reservations/{id}/documents
+export type ReservationDocumentKind = "Delivery" | "Return";
+export interface ReservationDocument {
+  documentId: string;
+  kind: ReservationDocumentKind;
+  attachedBy: string;
+  attachedAt: string;
+  fileName: string | null;
+  contentType: string | null;
+  sizeBytes: number | null;
+}
+
+// GET /reservations/{id}/reviews y /vehicles/{id}/reviews
+export interface Review {
+  id: string;
+  reservationId: string;
+  vehicleId: string;
+  authorId: string;
+  authorRole: ReservationActor;
+  subjectId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}
+
+// GET /vehicles/{id}/photos. La imagen: GET /vehicles/{id}/photos/{documentId}.
+export interface VehiclePhoto {
+  documentId: string;
+  addedAt: string;
 }

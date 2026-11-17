@@ -11,6 +11,18 @@ public interface IReservationReadStore
         Guid id,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<ReservationStatusChangeDTO>> ListHistoryAsync(
+        Guid reservationId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ReservationDocumentDTO>> ListDocumentsAsync(
+        Guid reservationId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ReviewDTO>> ListReviewsAsync(
+        Guid reservationId,
+        CancellationToken cancellationToken = default);
+
     Task<PagedResult<ReservationSummaryDTO>> ListByRenterAsync(
         Guid renterId,
         int page,

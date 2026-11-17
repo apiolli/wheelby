@@ -13,6 +13,34 @@ internal sealed class ReservationReadStore(WheelbyDbContext db) : IReservationRe
         => Project(WithVehicle().Where(x => x.Reservation.Id == id))
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<ReservationStatusChangeDTO>> ListHistoryAsync(
+        Guid reservationId, CancellationToken cancellationToken)
+        => await db.ReservationStatusHistory
+            .AsNoTracking()
+            .Where(h => h.ReservationId == reservationId)
+            .OrderBy(h => h.At).ThenBy(h => h.From == null ? 0 : 1)
+            .Select(h => new ReservationStatusChangeDTO(h.From, h.To, h.Actor, h.ActorId, h.Reason, h.At))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<ReservationDocumentDTO>> ListDocumentsAsync(
+        Guid reservationId, CancellationToken cancellationToken)
+        => await db.ReservationDocuments
+            .AsNoTracking()
+            .Where(d => d.ReservationId == reservationId)
+            .OrderBy(d => d.AttachedAt)
+            .Select(d => new ReservationDocumentDTO(d.DocumentId, d.Kind, d.AttachedBy, d.AttachedAt, null, null, null))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<ReviewDTO>> ListReviewsAsync(
+        Guid reservationId, CancellationToken cancellationToken)
+        => await db.Reviews
+            .AsNoTracking()
+            .Where(r => r.ReservationId == reservationId)
+            .OrderBy(r => r.CreatedAt)
+            .Select(r => new ReviewDTO(
+                r.Id, r.ReservationId, r.VehicleId, r.AuthorId, r.AuthorRole, r.SubjectId, r.Rating, r.Comment, r.CreatedAt))
+            .ToListAsync(cancellationToken);
+
     public Task<PagedResult<ReservationSummaryDTO>> ListByRenterAsync(
         Guid renterId,
         int page,

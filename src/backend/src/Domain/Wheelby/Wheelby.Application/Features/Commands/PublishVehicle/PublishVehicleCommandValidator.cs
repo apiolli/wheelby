@@ -27,5 +27,14 @@ internal sealed class PublishVehicleCommandValidator : AbstractValidator<Publish
         RuleFor(x => x.PricePerDay)
             .GreaterThan(0).WithMessage("El precio por día debe ser mayor que cero.")
             .LessThanOrEqualTo(Vehicle.PricePerDayMax).WithMessage($"El precio por día no puede exceder los {Vehicle.PricePerDayMax}.");
+
+        RuleFor(x => x.Type).IsInEnum().When(x => x.Type is not null)
+            .WithMessage("El tipo debe ser Car, Motorcycle, Bicycle, Scooter u Other.");
+
+        RuleFor(x => x.City).MaximumLength(Vehicle.CityMaxLength)
+            .WithMessage($"La ciudad no puede exceder los {Vehicle.CityMaxLength} caracteres.");
+
+        RuleFor(x => x.Description).MaximumLength(Vehicle.DescriptionMaxLength)
+            .WithMessage($"La descripción no puede exceder los {Vehicle.DescriptionMaxLength} caracteres.");
     }
 }
