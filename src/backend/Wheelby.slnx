@@ -18,6 +18,7 @@
     <Project Path="src/Core/Notifications/Notifications.Contracts/Notifications.Contracts.csproj" />
     <Project Path="src/Core/Notifications/Notifications.Domain/Notifications.Domain.csproj" />
     <Project Path="src/Core/Notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj" />
+    <Project Path="src/Core/Notifications/Notifications.Test/Notifications.Test.csproj" />
   </Folder>
   <Folder Name="/Core/Permissions/">
     <Project Path="src/Core/Permissions/Permissions.Application/Permissions.Application.csproj" />
