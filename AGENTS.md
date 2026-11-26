@@ -1,6 +1,8 @@
 # Contexto para agentes: Wheelby
 
-Documento de traspaso para cualquier agente que trabaje en este repositorio. Léelo completo antes de tocar código. Si algo de aquí contradice al código, manda el código: verifica y actualiza este archivo.
+Documento de traspaso para cualquier agente que trabaje en este repositorio. Léelo completo antes de tocar código. Si algo de aquí contradice al código, manda el código: verifícalo y **avísale al estudiante**. El agente no edita este archivo (sección 2.3).
+
+> **Tarea actual: Práctica 5.** Notificaciones, cola de correos completa y reportes con agregación. Antes de escribir código lee `docs/criterios-notificaciones-reportes.md` (el contrato con el que se acepta el trabajo) y `docs/practica-5/tarea-agente.md` (diseño, rutas y orden de commits). Ver sección 12.
 
 Estado al 26 de noviembre de 2026, sobre `main` en `a1bb16a`.
 
@@ -26,6 +28,8 @@ Wheelby es un marketplace de alquiler de vehículos entre particulares, proyecto
 - **Un cambio lógico por commit**, y cada commit compila con las pruebas en verde.
 - **Nunca `--force`**, nunca reescribir historia publicada y **nunca mover ni borrar etiquetas ya subidas** (`asignacion-*`, `practica-*`). Se evalúa el punto etiquetado.
 - No hacer push a `main` directamente: se trabaja en una rama y se integra con PR. Al fusionar, usar **"Create a merge commit"** o **"Squash and merge"**; "Rebase and merge" cambia los hashes y confunde el historial.
+- **Práctica 5: solo "Create a merge commit", nunca squash.** El commit de `AGENTS.md` y los criterios tiene que quedar en el historial **antes** del primer commit de notificaciones, y un squash lo fundiría con el código. Por eso la documentación va en un PR propio que se fusiona primero, y el código en otro PR posterior.
+- El agente **no hace push ni crea etiquetas**: eso lo hace el estudiante.
 - No borrar ramas existentes (`prueba/a`, `prueba/b`, `temp/defecto-2`, `feature/*`).
 
 ### 2.2 Reglas de diseño (RD)
@@ -41,6 +45,31 @@ Wheelby es un marketplace de alquiler de vehículos entre particulares, proyecto
 | RD-10 | Secretos solo por variables de entorno desde `.env`, que no se versiona. Nada real en código, `Dockerfile`, compose, README ni commits. |
 | RD-11 | Fechas en UTC. El dominio recibe `utcNow` por parámetro y nunca lee el reloj. |
 | RD-12 | Las pruebas no levantan la aplicación ni necesitan PostgreSQL. |
+
+### 2.3 Restricciones para el agente
+
+**Secretos**
+
+- **Nunca leer, abrir, imprimir, copiar, buscar dentro de, ni modificar `.env` ni `src/frontend/.env`.** Tampoco con `cat`, `grep`, `type`, `Get-Content` ni desde un script. Para saber qué variables existen, lee `.env.example` y la sección 8 del README.
+- **Nunca escribir credenciales** (`Smtp__*` reales, `Jwt__Key`, `Admin__Password`, `POSTGRES_PASSWORD`, `ExchangeRate__ApiKey`) en código, pruebas, documentación, `.env.example`, mensajes de commit, descripciones de PR ni salidas de comandos que se peguen en un documento. En `.env.example` van solo valores de ejemplo (`change_me`, `smtp.example.com`).
+- Si una tarea parece exigir un secreto, detente y pídeselo al estudiante; él lo pone en su `.env`.
+
+**Partes que no se tocan**
+
+- Las **migraciones existentes** de cualquier módulo. Los cambios de esquema van siempre en una migración nueva.
+- `ReservationStateMachine.cs` y `PermissionRequestStateMachine.cs`: su tabla de transiciones, los estados terminales y las prohibidas.
+- Las **pruebas existentes** de `Documents.Test`, `Permissions.Test` y `Wheelby.Test`: no se editan ni se borran, solo se agregan nuevas. La única excepción en la Práctica 5 son las pruebas que comprueban que los avisos de reserva usaban `IEmailQueue`, que se adaptan al motor nuevo y se listan en el PR.
+- `src/frontend/` completo.
+- `AGENTS.md`, `docs/criterios-notificaciones-reportes.md` y `docs/practica-5/tarea-agente.md`.
+- Las etiquetas, las ramas existentes y los commits de defectos.
+- El comportamiento de los seis frentes del README y la persistencia de documentos.
+
+**Partes que solo admiten agregados**
+
+- `Dockerfile`: solo una línea `COPY` por cada `.csproj` **de producción** nuevo (los de pruebas no la necesitan).
+- `docker-compose.yml` y `.env.example`: solo variables nuevas con valores de ejemplo. No se quita ni se cambia nada de lo que ya existe.
+
+**Si algo no está claro**, o un criterio choca con una regla de este archivo, detente y pregunta en lugar de suponer.
 
 ---
 
@@ -62,7 +91,7 @@ Wheelby es un marketplace de alquiler de vehículos entre particulares, proyecto
    │     ├─ Host/Host.Worker      BackgroundServices: cola de correos y expiración de solicitudes
    │     ├─ Shared/               SharedKernel (AggregateRoot, AppException…) y Shared.Application (IClock, ValidationBehavior)
    │     ├─ Core/AccessControl    registro, sesión (JWT + sesiones revocables), roles, recuperación de contraseña
-   │     ├─ Core/Notifications    cola de correos (QueuedEmails) y envío por SMTP con MailKit
+   │     ├─ Core/Notifications    cola de correos (QueuedEmails) y envío por SMTP con MailKit; en la P5 suma bandeja interna, preferencias y reintentos
    │     ├─ Core/Permissions      solicitudes de permiso, aprobación, concesiones, catálogo (IPermissionChecker)
    │     ├─ Core/Documents        manejador de documentos (subir, listar, descargar, eliminación lógica)
    │     └─ Domain/Wheelby        negocio: vehículos, reservas, máquina de estados, fotos, reseñas
@@ -175,7 +204,8 @@ Ordenados por prioridad sugerida.
 4. **Convención de fechas sin decidir** (`docs/wheelby/pendientes-backend.md`): la reserva es por día o por instante UTC. Con usuarios en UTC−4, una reserva «del 20 al 22» puede empezar el 19 a las 20:00 hora local.
 5. **Prueba de rutas que no comprueba nada:** en `src/backend/src/Domain/Wheelby/Wheelby.Test/Infrastructure/EndpointRouteTests.cs`, la prueba de `/admin/reservations` hace `if (rutasAdmin.Count == 0) return;`. Leer `EndpointDataSource` del contenedor sin arrancar la app devuelve una lista vacía, así que la prueba pasa sin verificar. La forma correcta es la de `Documents.Test/Infrastructure/DocumentEndpointRouteTests.cs`: leer `((IEndpointRouteBuilder)app).DataSources` y exigir el número exacto de endpoints.
 6. **Ejemplo real de la API externa** pendiente en el README, si se quiere completar para una entrega futura.
-7. **Fuera de alcance por ahora:** auditoría de documentos (RF-DOC-06, semana 12), reportes (RF-NEG-08), verificación de identidad del anfitrión y promedio de calificación en la ficha.
+7. **Fuera de alcance por ahora:** auditoría de documentos (RF-DOC-06, semana 12), verificación de identidad del anfitrión, promedio de calificación en la ficha y cualquier cambio del frontend. **Los reportes entran en la Práctica 5** (sección 12).
+8. **README desactualizado en pruebas:** dice 234 pruebas y hoy son 278. Se corrige en la Práctica 5.
 
 ---
 
@@ -198,7 +228,7 @@ Ordenados por prioridad sugerida.
 ## 9. Frontend
 
 - **Arranque:** `cd src/frontend && npm install && npm run dev` (http://localhost:5173), con la API corriendo. La URL de la API va en `VITE_API_URL` (`src/frontend/.env.example`).
-- **Activación de cuentas desde el frontend:** en el `.env` de la raíz, `App__ActivationUrl=http://localhost:5173/auth/activar`.
+- **Activación de cuentas desde el frontend:** el estudiante pone en su `.env` de la raíz `App__ActivationUrl=http://localhost:5173/auth/activar`. El agente no edita `.env` (sección 2.3).
 - **Errores:** el cliente decide con `extensions.code` del `problem+json`, nunca con el texto de `detail`. Tabla de códigos en `docs/wheelby/README.md`.
 - **Navegación:** todo lo visible vive en la ruta o en su query string. Mapa de rutas en `src/frontend/README.md`.
 
@@ -217,6 +247,9 @@ Ordenados por prioridad sugerida.
 | Pendientes del backend (checklist) | `docs/wheelby/pendientes-backend.md` |
 | Frontend | `src/frontend/README.md` |
 | Defectos plantados de cada práctica y qué prueba los detecta | `README.md` sección «Defectos» |
+| Criterios de aceptación de la Práctica 5 | `docs/criterios-notificaciones-reportes.md` |
+| Diseño y orden de trabajo de la Práctica 5 | `docs/practica-5/tarea-agente.md` |
+| Notificaciones: diseño y verificación (lo crea la P5) | `docs/notificaciones/README.md` |
 
 ---
 
@@ -228,3 +261,24 @@ Ordenados por prioridad sugerida.
 - [ ] README y `docs/` actualizados si cambió una ruta, una variable, un código de error o un paso de verificación. El README es lo que se evalúa: lo que no dice, no existe.
 - [ ] Commits con el formato de la sección 2.1, a nombre del estudiante y sin trailers.
 - [ ] Ninguna etiqueta movida y ningún secreto en el diff (`git diff`, `.env` fuera del índice).
+- [ ] Nada de la lista "no se toca" de la sección 2.3 aparece en `git diff main --stat`.
+
+---
+
+## 12. Práctica 5: notificaciones, cola de correos y reportes
+
+**Qué se entrega:** la etiqueta `practica-5`, el último hito del cuatrimestre.
+
+| Pieza | Requisitos | Resumen |
+|---|---|---|
+| Notificaciones | RF-NOT-01 a 07 | Bandeja interna propia y correo por cada notificación. Crear una solicitud de permiso notifica a los Administradores activos; resolverla notifica al solicitante (con el motivo si se rechaza). Las transiciones de reserva pasan por el motor; el evento documentado es "solicitar una reserva notifica al anfitrión". Cada usuario puede desactivar su correo. |
+| Cola de correos | RF-NOT-08 a 13 | Máximo de **5 intentos** (`Notifications__MaxEmailAttempts`) y luego `Failed` con su último error. El Administrador consulta la cola (sin el cuerpo). Ejecución manual con `docker compose run --rm worker --once`, sin duplicar envíos. |
+| Reportes | RF-REP-01 a 05 | `GET /reports/permission-requests` (solicitudes por mes y estado) y `GET /reports/vehicle-revenue` (ingresos y días por vehículo), con `from`/`to` y agregación en PostgreSQL. El Estándar ve solo lo suyo. |
+
+**Decisiones ya tomadas** (no se discuten en la implementación):
+
+- Los correos de cuenta (activación, recuperación) **no** son notificaciones: siguen por `IEmailQueue`, sin bandeja y sin respetar la preferencia.
+- Solo backend. El frontend se trabaja después, sobre la API terminada.
+- Notificar es un efecto secundario posterior al guardado, igual que RF-NEG-07: no es outbox, y se documenta.
+
+**Fuentes de verdad, en este orden:** `docs/criterios-notificaciones-reportes.md` → `docs/practica-5/tarea-agente.md` → este archivo.
