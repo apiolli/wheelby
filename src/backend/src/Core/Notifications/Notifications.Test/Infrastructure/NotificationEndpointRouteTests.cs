@@ -26,6 +26,21 @@ public sealed class NotificationEndpointRouteTests
         => $"{e.Metadata.OfType<HttpMethodMetadata>().Single().HttpMethods.Single()} {e.RoutePattern.RawText!.TrimEnd('/')}";
 
     [Fact]
+    public void RF_NOT_04_rutas_de_notificaciones_exigen_sesion()
+    {
+        // Arrange (en Endpoints)
+
+        // Act
+        var endpoints = Endpoints("/notifications");
+
+        // Assert
+        Assert.Equal(
+            new[] { "GET /notifications" },
+            endpoints.Select(Route).OrderBy(r => r, StringComparer.Ordinal));
+        Assert.All(endpoints, e => Assert.NotEmpty(e.Metadata.OfType<AuthorizeAttribute>()));
+    }
+
+    [Fact]
     public void RF_NOT_11_rutas_de_la_cola_exigen_administrador()
     {
         // Arrange (en Endpoints)
