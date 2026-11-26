@@ -2,8 +2,10 @@ using AccessControl.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Permissions.Application.Features.ApprovePermissionRequest;
+using Permissions.Application.Features.PermissionRequestsReport;
 using Permissions.Application.Features.CreatePermissionRequest;
 using Permissions.Application.Features.ExecuteDemoAction;
 using Permissions.Application.Features.ListMyRequests;
@@ -18,7 +20,23 @@ public static class PermissionsEndpoints
     {
         MapPermissionEndpoints(app);
         MapAdminPermissionEndpoints(app);
+        MapReportEndpoints(app);
         return app;
+    }
+
+    // RF-REP-01: los dos roles entran; el handler limita al Estándar a lo suyo (RF-REP-04).
+    private static void MapReportEndpoints(IEndpointRouteBuilder app)
+    {
+        var reports = app.MapGroup("/reports")
+            .WithTags("Reports")
+            .RequireAuthorization();
+
+        reports.MapGet("/permission-requests", async (
+            string? from,
+            string? to,
+            [FromServices] ISender sender,
+            CancellationToken ct)
+            => Results.Ok(await sender.Send(new PermissionRequestsReportQuery(from, to), ct)));
     }
 
     private static void MapPermissionEndpoints(IEndpointRouteBuilder app)
