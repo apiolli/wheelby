@@ -59,7 +59,7 @@ Wheelby es un marketplace de alquiler de vehículos entre particulares, proyecto
 - Las **migraciones existentes** de cualquier módulo. Los cambios de esquema van siempre en una migración nueva.
 - `ReservationStateMachine.cs` y `PermissionRequestStateMachine.cs`: su tabla de transiciones, los estados terminales y las prohibidas.
 - Las **pruebas existentes** de `Documents.Test`, `Permissions.Test` y `Wheelby.Test`: no se editan ni se borran, solo se agregan nuevas. La única excepción en la Práctica 5 son las pruebas que comprueban que los avisos de reserva usaban `IEmailQueue`, que se adaptan al motor nuevo y se listan en el PR.
-- `src/frontend/` completo.
+- `src/frontend/`, salvo en una tarea que lo autorice de forma explícita (la del frontend de notificaciones y reportes lo hace). En esa tarea el backend no se toca.
 - `AGENTS.md`, `docs/criterios-notificaciones-reportes.md` y `docs/practica-5/tarea-agente.md`.
 - Las etiquetas, las ramas existentes y los commits de defectos.
 - El comportamiento de los seis frentes del README y la persistencia de documentos.
@@ -204,7 +204,7 @@ Ordenados por prioridad sugerida.
 4. **Convención de fechas sin decidir** (`docs/wheelby/pendientes-backend.md`): la reserva es por día o por instante UTC. Con usuarios en UTC−4, una reserva «del 20 al 22» puede empezar el 19 a las 20:00 hora local.
 5. **Prueba de rutas que no comprueba nada:** en `src/backend/src/Domain/Wheelby/Wheelby.Test/Infrastructure/EndpointRouteTests.cs`, la prueba de `/admin/reservations` hace `if (rutasAdmin.Count == 0) return;`. Leer `EndpointDataSource` del contenedor sin arrancar la app devuelve una lista vacía, así que la prueba pasa sin verificar. La forma correcta es la de `Documents.Test/Infrastructure/DocumentEndpointRouteTests.cs`: leer `((IEndpointRouteBuilder)app).DataSources` y exigir el número exacto de endpoints.
 6. **Ejemplo real de la API externa** pendiente en el README, si se quiere completar para una entrega futura.
-7. **Fuera de alcance por ahora:** auditoría de documentos (RF-DOC-06, semana 12), verificación de identidad del anfitrión, promedio de calificación en la ficha y cualquier cambio del frontend. **Los reportes entran en la Práctica 5** (sección 12).
+7. **Fuera de alcance por ahora:** auditoría de documentos (RF-DOC-06, semana 12), verificación de identidad del anfitrión, promedio de calificación en la ficha y cualquier cambio del frontend que no esté en una tarea asignada. **Los reportes entran en la Práctica 5** (sección 12).
 8. **README desactualizado en pruebas:** dice 234 pruebas y hoy son 278. Se corrige en la Práctica 5.
 
 ---
@@ -278,7 +278,7 @@ Ordenados por prioridad sugerida.
 **Decisiones ya tomadas** (no se discuten en la implementación):
 
 - Los correos de cuenta (activación, recuperación) **no** son notificaciones: siguen por `IEmailQueue`, sin bandeja y sin respetar la preferencia.
-- Solo backend. El frontend se trabaja después, sobre la API terminada.
+- Solo backend. El frontend se trabaja después, sobre la API terminada y en una tarea propia.
 - Notificar es un efecto secundario posterior al guardado, igual que RF-NEG-07: no es outbox, y se documenta.
 
 **Fuentes de verdad, en este orden:** `docs/criterios-notificaciones-reportes.md` → `docs/practica-5/tarea-agente.md` → este archivo.
