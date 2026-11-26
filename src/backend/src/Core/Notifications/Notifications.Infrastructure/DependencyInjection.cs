@@ -8,7 +8,9 @@ using Notifications.Application.Features.EnqueueEmail;
 using Notifications.Application.Features.SendPendingEmails;
 using Notifications.Application.Options;
 using Notifications.Contracts;
+using INotificationPublisher = Notifications.Contracts.INotificationPublisher;
 using Notifications.Infrastructure.Email;
+using Notifications.Infrastructure.Inbox;
 using Notifications.Infrastructure.Persistence;
 
 namespace Notifications.Infrastructure;
@@ -46,7 +48,11 @@ public static class DependencyInjection
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.AddScoped<IEmailSender, MailKitEmailSender>();
 
+        // Correos de cuenta (activación, recuperación): directo a la cola, sin bandeja ni preferencia.
         services.AddScoped<IEmailQueue, EmailQueue>();
+
+        // Motor de notificaciones. Necesita IUserDirectory e IAdministratorDirectory de AccessControl.
+        services.AddScoped<INotificationPublisher, NotificationPublisher>();
 
         return services;
     }

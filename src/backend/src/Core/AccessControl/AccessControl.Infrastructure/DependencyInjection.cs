@@ -28,6 +28,7 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString, npgsql =>
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", AccessControlDbContext.Schema)));
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.AddScoped<IAdministratorDirectory, UserDirectory>();
         return services;
     }
 
@@ -59,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<IUserReadStore, UserReadStore>();
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.AddScoped<IAdministratorDirectory, UserDirectory>();
 
         // JWT
         services.AddOptions<JwtOptions>()
