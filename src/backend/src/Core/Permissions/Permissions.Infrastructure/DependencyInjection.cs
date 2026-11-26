@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IPermissionRequestRepository, PermissionRequestRepository>();
         services.AddScoped<IPermissionGrantRepository, PermissionGrantRepository>();
         services.AddScoped<IPermissionRequestReadStore, PermissionRequestReadStore>();
+        services.AddScoped<IPermissionRequestReportStore, PermissionRequestReportStore>();
         services.AddScoped<IPermissionsUnitOfWork, PermissionsUnitOfWork>();
 
         // Catálogo de permisos: cada módulo registra los suyos (inversión de dependencia).
