@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Notifications.Application.Features.GetQueuedEmail;
 using Notifications.Application.Features.ListMyNotifications;
 using Notifications.Application.Features.ListQueuedEmails;
+using Notifications.Application.Features.MarkNotificationAsRead;
 
 namespace Notifications.Infrastructure;
 
@@ -35,6 +36,12 @@ public static class NotificationsEndpoints
             CancellationToken ct)
             => Results.Ok(await sender.Send(
                 new ListMyNotificationsQuery(read, page ?? 1, pageSize ?? 20), ct)));
+
+        inbox.MapPost("/{id:guid}/read", async (Guid id, [FromServices] ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new MarkNotificationAsReadCommand(id), ct);
+            return Results.NoContent();
+        });
     }
 
     // RF-NOT-11: la cola solo la ve el Administrador. La política se declara una vez,
