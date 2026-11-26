@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<INotificationReadStore, NotificationReadStore>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<INotificationsUnitOfWork, NotificationsUnitOfWork>();
+        services.AddScoped<INotificationPreferenceRepository, NotificationPreferenceRepository>();
 
         // RF-NOT-10: Notifications__MaxEmailAttempts, 5 por defecto y mínimo 1.
         services.AddOptions<NotificationOptions>()
