@@ -167,16 +167,17 @@ public class Priority3Tests
         var users = new FakeUserDirectory();
         users.Agregar(reserva.OwnerId, "host@w.dev");
         users.Agregar(reserva.RenterId, "renter@w.dev");
-        var queue = new FakeEmailQueue();
-        var handler = new NotifyReservationStatusChangedHandler(store, users, queue, NullLogger<NotifyReservationStatusChangedHandler>.Instance);
+        // P5 (RF-NOT-03): el aviso pasa por el motor de notificaciones, no por IEmailQueue.
+        var publisher = new SpyNotificationPublisher();
+        var handler = new NotifyReservationStatusChangedHandler(store, users, publisher, NullLogger<NotifyReservationStatusChangedHandler>.Instance);
 
         await handler.Handle(new ReservationStatusChanged(
             reserva.Id, null, ReservationStatus.Pending, ReservationActor.Renter, reserva.RenterId, null, Ahora), CancellationToken.None);
 
-        var correo = Assert.Single(queue.Sent);
-        Assert.Equal("host@w.dev", correo.To);
-        Assert.Contains("Nueva solicitud", correo.Subject);
-        Assert.Contains("Toyota Corolla", correo.Body);
+        var aviso = Assert.Single(publisher.Published);
+        Assert.Equal(new[] { reserva.OwnerId }, aviso.RecipientIds);
+        Assert.Contains("Nueva solicitud", aviso.Message.Title);
+        Assert.Contains("Toyota Corolla", aviso.Message.Message);
     }
 
     [Fact]
@@ -185,8 +186,9 @@ public class Priority3Tests
         var (store, reserva) = ReadStoreCon();
         var users = new FakeUserDirectory();
         users.Agregar(reserva.RenterId, "renter@w.dev");
-        var queue = new FakeEmailQueue { FailWith = new BadRequestException("correo inválido") };
-        var handler = new NotifyReservationStatusChangedHandler(store, users, queue, NullLogger<NotifyReservationStatusChangedHandler>.Instance);
+        // P5 (RF-NOT-03): el que falla ahora es el motor de notificaciones.
+        var publisher = new SpyNotificationPublisher { FailWith = new BadRequestException("correo inválido") };
+        var handler = new NotifyReservationStatusChangedHandler(store, users, publisher, NullLogger<NotifyReservationStatusChangedHandler>.Instance);
 
         await handler.Handle(new ReservationStatusChanged(
             reserva.Id, ReservationStatus.Pending, ReservationStatus.Confirmed, ReservationActor.Host, reserva.OwnerId, null, Ahora),

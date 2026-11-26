@@ -30,7 +30,8 @@ internal sealed class RejectReservationCommandHandler(
         if (vehicle.OwnerId != currentUser.Id)
             throw new ForbiddenException("Solo el dueño del vehículo puede rechazar la reserva.", WheelbyErrorCodes.ReservationNotHost);
 
-        reservation.TransitionTo(ReservationStatus.Cancelled, ReservationActor.Host, clock.UtcNow, command.Reason, actorId: currentUser.Id);
+        reservation.TransitionTo(ReservationStatus.Cancelled, ReservationActor.Host, clock.UtcNow, command.Reason,
+            actorId: currentUser.Id, isRejection: true);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Unit.Value;

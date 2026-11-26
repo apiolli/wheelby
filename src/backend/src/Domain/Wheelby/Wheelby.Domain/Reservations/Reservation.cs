@@ -92,7 +92,10 @@ public sealed class Reservation : AggregateRoot<Guid>
         ReservationActor actor,
         DateTime utcNow,
         string? cancellationReason = null,
-        Guid? actorId = null)
+        Guid? actorId = null,
+        // RF-NOT-03: solo lo marca el rechazo de una solicitud (/reject). No cambia
+        // la regla de la máquina de estados; viaja en el evento para elegir el aviso.
+        bool isRejection = false)
     {
         // Si la máquina rechaza, el estado no cambia.
         ReservationStateMachine.Validate(this, target, actor, utcNow, cancellationReason);
@@ -105,7 +108,7 @@ public sealed class Reservation : AggregateRoot<Guid>
 
         var from = Status;
         Status = target;
-        Record(from, target, actor, actorId, reason, utcNow);
+        Record(from, target, actor, actorId, reason, utcNow, isRejection);
     }
 
     private void Record(
@@ -114,9 +117,10 @@ public sealed class Reservation : AggregateRoot<Guid>
         ReservationActor actor,
         Guid? actorId,
         string? reason,
-        DateTime at)
+        DateTime at,
+        bool isRejection = false)
     {
         _history.Add(new ReservationStatusChange(Id, from, to, actor, actorId, reason, at));
-        AddDomainEvent(new ReservationStatusChanged(Id, from, to, actor, actorId, reason, at));
+        AddDomainEvent(new ReservationStatusChanged(Id, from, to, actor, actorId, reason, at, isRejection));
     }
 }
