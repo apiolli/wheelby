@@ -1,11 +1,15 @@
+using AccessControl.Contracts;
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Logging;
+using INotificationPublisher = Notifications.Contracts.INotificationPublisher;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Permissions.Application.Abstractions;
 using Permissions.Application.Features.CreatePermissionRequest;
 using Permissions.Contracts;
+using Permissions.Infrastructure.Notifiers;
 using Permissions.Infrastructure.Persistence;
 using Permissions.Infrastructure.Permissions;
 
@@ -37,6 +41,13 @@ public static class DependencyInjection
         services.AddSingleton<IPermissionDefinition, DemoPermissionDefinition>();
         services.AddSingleton<IPermissionCatalog, PermissionCatalog>();
         services.AddScoped<IPermissionChecker, PermissionChecker>();
+
+        // RF-NOT-01 y 02: avisos por el motor de notificaciones (Notifications.Contracts).
+        // El motor y el directorio son opcionales: sin el módulo Notifications, Permissions sigue funcionando.
+        services.AddScoped<IPermissionRequestNotifier>(sp => new PermissionRequestNotifier(
+            sp.GetService<INotificationPublisher>(),
+            sp.GetService<IUserDirectory>(),
+            sp.GetRequiredService<ILogger<PermissionRequestNotifier>>()));
 
         return services;
     }

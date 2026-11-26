@@ -13,7 +13,10 @@ internal sealed class CreatePermissionRequestCommandHandler(
     IPermissionCatalog catalog,
     IPermissionsUnitOfWork unitOfWork,
     ICurrentUser currentUser,
-    IClock clock) : IRequestHandler<CreatePermissionRequestCommand, Guid>
+    IClock clock,
+    // RF-NOT-01: opcional y al final para que las pruebas previas sigan compilando sin cambios.
+    // En la API siempre está registrado.
+    IPermissionRequestNotifier? notifier = null) : IRequestHandler<CreatePermissionRequestCommand, Guid>
 {
     public async Task<Guid> Handle(CreatePermissionRequestCommand request, CancellationToken cancellationToken)
     {
@@ -34,6 +37,10 @@ internal sealed class CreatePermissionRequestCommandHandler(
 
         await requests.AddAsync(permissionRequest, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Efecto secundario posterior al guardado: un fallo se registra y no cambia la respuesta.
+        if (notifier is not null)
+            await notifier.RequestCreatedAsync(permissionRequest, cancellationToken);
 
         return permissionRequest.Id;
     }
