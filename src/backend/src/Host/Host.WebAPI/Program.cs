@@ -67,6 +67,7 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("OpenApi
 // Mapeo de endpoints
 app.MapAccessControlEndpoints();
 app.MapPermissionsEndpoints();
+app.MapNotificationsEndpoints();
 app.MapWheelbyEndpoints();
 app.MapDocumentsEndpoints();
 
