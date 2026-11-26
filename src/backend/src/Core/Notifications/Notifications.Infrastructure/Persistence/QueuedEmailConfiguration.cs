@@ -32,6 +32,12 @@ internal sealed class QueuedEmailConfiguration : IEntityTypeConfiguration<Queued
         builder.Property(e => e.CreatedAt).IsRequired();
         builder.Property(e => e.SentAt);
 
+        // RF-NOT-10: intentos y último error. La migración pone Attempts = 0 en las filas viejas.
+        builder.Property(e => e.Attempts).IsRequired();
+        builder.Property(e => e.LastAttemptAt);
+        builder.Property(e => e.LastError).HasMaxLength(QueuedEmail.LastErrorMaxLength);
+        builder.Property(e => e.FailedAt);
+
         builder.HasIndex(e => new { e.Status, e.CreatedAt });
     }
 }

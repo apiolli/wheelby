@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Notifications.Application.Abstractions;
 using Notifications.Application.Features.EnqueueEmail;
 using Notifications.Application.Features.SendPendingEmails;
+using Notifications.Application.Options;
 using Notifications.Contracts;
 using Notifications.Infrastructure.Email;
 using Notifications.Infrastructure.Persistence;
@@ -30,6 +31,12 @@ public static class DependencyInjection
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", NotificationsDbContext.Schema)));
 
         services.AddScoped<IQueuedEmailRepository, QueuedEmailRepository>();
+
+        // RF-NOT-10: Notifications__MaxEmailAttempts, 5 por defecto y mínimo 1.
+        services.AddOptions<NotificationOptions>()
+            .Bind(configuration.GetSection(NotificationOptions.SectionName))
+            .Validate(o => o.MaxEmailAttempts >= 1, "Notifications__MaxEmailAttempts debe ser 1 o mayor.")
+            .ValidateOnStart();
 
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.AddScoped<IEmailSender, MailKitEmailSender>();
