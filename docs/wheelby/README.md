@@ -277,11 +277,26 @@ Con `StartDate` en el pasado y `EndDate` en el futuro respecto a `utcNow`, `POST
 - **Publicar un vehículo depende del permiso `wheelby.publish-vehicle`**, comprobado solo por `IPermissionChecker` (RF-NEG-06).
 - **Datos de Wheelby persisten tras reiniciar la API (RD-09):** migraciones `AddVehicles`, `FreezeReservationPrice`, `ReservationHistoryDocumentsReviewsPhotos` y `NoBlockingOverlap` aplicadas al arrancar. `ReservationHistoryDocumentsReviewsPhotos` crea la fila inicial del historial de las reservas existentes y, si ya no están `Pending`, una fila `System` con su estado actual (no hay registro de quién lo cambió). `FreezeReservationPrice` rellena las reservas anteriores con el precio actual del vehículo (no había registro del precio original).
 - **Solape concurrente cerrado en la base:** la migración `NoBlockingOverlap` crea la restricción `EXCLUDE` `no_blocking_overlap` (requiere `btree_gist`) sobre `VehicleId` y `tstzrange(StartDate, EndDate, '[)')` para `Confirmed` e `InProgress`. Si dos confirmaciones simultáneas pasan `HasBlockingOverlapAsync`, la base rechaza la segunda y `WheelbyUnitOfWork` responde 409 `vehicle.overlap`. Si al aplicar la migración ya hay solapes en los datos, falla: hay que cancelar una de las reservas antes.
-- **Historial y avisos (RF-NEG-07):** `Reservation.TransitionTo` agrega una fila a `ReservationStatusHistory` y el evento `ReservationStatusChanged`. `WheelbyUnitOfWork` publica los eventos después de guardar; `NotifyReservationStatusChangedHandler` encola un correo para la contraparte de quien actuó (a los dos si actúa el sistema) y el Worker lo envía. El correo es un efecto secundario: si la cola falla se registra y la operación no se revierte. No es una bandeja transaccional (outbox): si la API cae justo entre guardar y encolar, ese aviso se pierde.
+- **Historial y avisos (RF-NEG-07, RF-NOT-03):** `Reservation.TransitionTo` agrega una fila a `ReservationStatusHistory` y el evento `ReservationStatusChanged`. `WheelbyUnitOfWork` publica los eventos después de guardar; desde la Práctica 5, `NotifyReservationStatusChangedHandler` pasa por el **motor de notificaciones** (`INotificationPublisher`, Notifications.Contracts): el aviso queda en la bandeja interna (`GET /notifications`) de la contraparte de quien actuó (de los dos si actúa el sistema) y, si no desactivó el correo, se encola su correo, que envía el Worker. Ya no se encola ningún correo de reserva por fuera del motor. Solicitar una reserva avisa al anfitrión (`reservation.requested`) con marca, modelo, fechas y nombre del inquilino. El evento lleva `IsRejection` para distinguir `/reject` (`reservation.rejected`) de `/cancel` del anfitrión (`reservation.cancelled`); la máquina de estados no cambió. El aviso es un efecto secundario: si falla se registra y la operación no se revierte. No es una bandeja transaccional (outbox): si la API cae justo entre guardar y notificar, ese aviso se pierde. Tipos y destinatarios en [docs/notificaciones/README.md](../notificaciones/README.md).
 - **Expiración de solicitudes:** el Worker ejecuta `ExpirePendingReservationsCommand` cada `Worker__ReservationExpiryIntervalSeconds` (300 por defecto). Las `Pending` cuyo inicio ya llegó pasan a `Cancelled` con actor `System` y motivo fijo.
 - **Documentos y fotos sin tocar el Core (RD-03):** Wheelby guarda solo `DocumentId` y lee los archivos con `IDocumentAccess` (Documents.Contracts). La regla de quién ve el archivo es de Wheelby: participantes de la reserva, o cualquier usuario con sesión para fotos vinculadas a un vehículo. `GET /documents/{id}/content` sigue sirviendo solo al dueño.
 - **Correos de los participantes:** `IUserDirectory` (AccessControl.Contracts) devuelve nombre y correo de un usuario activo.
 
+## Reporte de ingresos por vehículo (RF-REP-02)
+
+**Pregunta que responde:** ¿cuánto generó cada vehículo y cuántos días estuvo alquilado en un período?
+
+| Ruta | Grupo y política | Qué hace |
+| ---- | ---------------- | -------- |
+| `GET /reports/vehicle-revenue?from=yyyy-MM-dd&to=yyyy-MM-dd` | `/reports`, sesión (los dos roles) | 200 `{ from, to, scope, currency: "DOP", totals: { reservations, days, totalAmount }, rows }`. Una fila por vehículo con `vehicleId`, `brand`, `model`, `plate`, `reservations`, `days`, `totalAmount` y `averageAmount` (redondeado a 2 decimales), de mayor a menor `totalAmount`. |
+
+- Solo cuentan las reservas `Confirmed`, `InProgress` o `Completed` cuya `StartDate` está en `[from, to)` (UTC). `Pending` y `Cancelled` no generan ingreso. Los montos son los congelados en la reserva.
+- `scope = "own"` para el Estándar: solo sus vehículos (un inquilino sin vehículos recibe `rows` vacío y totales en 0). `scope = "all"` para el Administrador, aunque no entre a `/vehicles` ni a `/reservations`.
+- La agregación (join con `Vehicles`, `GROUP BY`, `COUNT` y `SUM`) la hace PostgreSQL: `VehicleRevenueReportStore` no carga las reservas a memoria.
+- `from` o `to` ausentes, con otro formato, o `from >= to` → 400 con el error por campo.
+
+Cómo probarlo: README principal, sección [Reportes](../../README.md#13-reportes).
+
 ## Fuera de alcance de esta práctica
 
-Reportes (RF-NEG-08), verificación de identidad del anfitrión (`MemberVerification`, cédula, hash), promedio de calificación en la ficha del vehículo, y la convención de fechas (día completo frente a instante UTC), pendiente de decisión.
+Verificación de identidad del anfitrión (`MemberVerification`, cédula, hash), promedio de calificación en la ficha del vehículo, y la convención de fechas (día completo frente a instante UTC), pendiente de decisión.
