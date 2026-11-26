@@ -8,6 +8,10 @@ using Shared.Application.Abstractions;
 
 namespace Notifications.Application.Features.SendPendingEmails;
 
+// Una pasada del procesador de la cola (RF-NOT-09 a 12).
+// Cada correo se toma con bloqueo de fila en su propia transacción: el Worker continuo
+// y un --once simultáneo nunca envían el mismo correo, y si el proceso cae a mitad
+// de la pasada, lo ya confirmado no se reenvía.
 internal sealed class SendPendingEmailsCommandHandler(
     IQueuedEmailRepository repository,
     IEmailSender sender,
@@ -22,13 +26,22 @@ internal sealed class SendPendingEmailsCommandHandler(
         SendPendingEmailsCommand request, CancellationToken cancellationToken)
     {
         var maxAttempts = options.Value.MaxEmailAttempts;
-        var pending = await repository.GetPendingAsync(BatchSize, cancellationToken);
+        // Los que ya se intentaron en esta pasada: un fallo sigue Pending y no se repite aquí.
+        var processed = new List<Guid>();
 
         var sent = 0;
         var failed = 0;
 
-        foreach (var email in pending)
+        while (processed.Count < BatchSize)
         {
+            await using var transaction = await repository.BeginTransactionAsync(cancellationToken);
+
+            var email = await repository.ClaimNextPendingAsync(processed, cancellationToken);
+            if (email is null)
+                break;
+
+            processed.Add(email.Id);
+
             try
             {
                 await sender.SendAsync(email.To.Value, email.Subject, email.Body, cancellationToken);
@@ -45,16 +58,15 @@ internal sealed class SendPendingEmailsCommandHandler(
                     email.Id, email.Attempts, maxAttempts, ex.GetType().Name);
             }
 
-            // Se guarda después de cada correo: si el proceso se cae a mitad del lote,
-            // los ya enviados no se reenvían.
             await repository.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
 
         return new SendPendingEmailsResult(sent, failed);
     }
 
-    // Tipo y mensaje de la excepción, recortados por el dominio a 500 caracteres.
-    // El remitente ya sanea su mensaje (EmailSendFailedException); nunca se usan las opciones SMTP.
+    // Tipo y mensaje de la excepción, recortados a 500 caracteres. El remitente ya sanea
+    // su mensaje (EmailSendFailedException); nunca se usan las opciones SMTP.
     internal static string Describe(Exception exception)
     {
         var text = exception is EmailSendFailedException
