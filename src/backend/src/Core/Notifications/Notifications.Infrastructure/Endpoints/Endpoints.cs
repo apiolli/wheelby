@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Notifications.Application.Features.GetQueuedEmail;
+using Notifications.Application.Features.ListMyNotifications;
 using Notifications.Application.Features.ListQueuedEmails;
 
 namespace Notifications.Infrastructure;
@@ -13,8 +14,27 @@ public static class NotificationsEndpoints
 {
     public static IEndpointRouteBuilder MapNotificationsEndpoints(this IEndpointRouteBuilder app)
     {
+        MapInboxEndpoints(app);
         MapAdminNotificationEndpoints(app);
         return app;
+    }
+
+    // RF-NOT-04 a 07: la bandeja y la preferencia del usuario de la sesión (los dos roles).
+    // Ninguna ruta recibe un userId: el dueño siempre es ICurrentUser.
+    private static void MapInboxEndpoints(IEndpointRouteBuilder app)
+    {
+        var inbox = app.MapGroup("/notifications")
+            .WithTags("Notifications")
+            .RequireAuthorization();
+
+        inbox.MapGet("/", async (
+            bool? read,
+            int? page,
+            int? pageSize,
+            [FromServices] ISender sender,
+            CancellationToken ct)
+            => Results.Ok(await sender.Send(
+                new ListMyNotificationsQuery(read, page ?? 1, pageSize ?? 20), ct)));
     }
 
     // RF-NOT-11: la cola solo la ve el Administrador. La política se declara una vez,
