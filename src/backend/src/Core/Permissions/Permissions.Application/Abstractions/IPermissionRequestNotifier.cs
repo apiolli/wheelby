@@ -9,4 +9,10 @@ public interface IPermissionRequestNotifier
 {
     // A los Administradores activos, excepto al solicitante.
     Task RequestCreatedAsync(PermissionRequest request, CancellationToken cancellationToken);
+
+    // Al solicitante: su solicitud fue aprobada (y aplicada).
+    Task RequestApprovedAsync(PermissionRequest request, CancellationToken cancellationToken);
+
+    // Al solicitante: su solicitud fue rechazada, con el motivo.
+    Task RequestRejectedAsync(PermissionRequest request, CancellationToken cancellationToken);
 }

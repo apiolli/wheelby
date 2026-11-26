@@ -13,7 +13,9 @@ internal sealed class ApprovePermissionRequestCommandHandler(
     IPermissionGrantRepository grants,
     IPermissionsUnitOfWork unitOfWork,
     ICurrentUser currentUser,
-    IClock clock) : IRequestHandler<ApprovePermissionRequestCommand, Unit>
+    IClock clock,
+    // RF-NOT-02: opcional y al final para que las pruebas previas sigan compilando sin cambios.
+    IPermissionRequestNotifier? notifier = null) : IRequestHandler<ApprovePermissionRequestCommand, Unit>
 {
     public async Task<Unit> Handle(
         ApprovePermissionRequestCommand request,
@@ -41,6 +43,10 @@ internal sealed class ApprovePermissionRequestCommandHandler(
 
         await grants.AddAsync(grant, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Solo si se guardó: un 403, 404 o 409 sale antes y no notifica (CA-NOT-02.3).
+        if (notifier is not null)
+            await notifier.RequestApprovedAsync(permissionRequest, cancellationToken);
 
         return Unit.Value;
     }
