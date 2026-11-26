@@ -35,7 +35,13 @@ public sealed class NotificationEndpointRouteTests
 
         // Assert
         Assert.Equal(
-            new[] { "GET /notifications", "POST /notifications/{id:guid}/read" },
+            new[]
+            {
+                "GET /notifications",
+                "GET /notifications/preferences",
+                "POST /notifications/{id:guid}/read",
+                "PUT /notifications/preferences",
+            },
             endpoints.Select(Route).OrderBy(r => r, StringComparer.Ordinal));
         Assert.All(endpoints, e => Assert.NotEmpty(e.Metadata.OfType<AuthorizeAttribute>()));
     }

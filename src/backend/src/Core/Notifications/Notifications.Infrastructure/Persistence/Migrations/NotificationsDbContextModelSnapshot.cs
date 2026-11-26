@@ -114,6 +114,22 @@ namespace Notifications.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Notifications", "notifications");
                 });
+
+            modelBuilder.Entity("Notifications.Domain.Inbox.NotificationPreference", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("EmailEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("NotificationPreferences", "notifications");
+                });
 #pragma warning restore 612, 618
         }
     }
