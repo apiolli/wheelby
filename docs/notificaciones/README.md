@@ -84,7 +84,7 @@ El texto de `LastError` es el tipo y el mensaje de la excepción, recortados a 5
 
 | Ruta | Política | Respuesta |
 |---|---|---|
-| `GET /notifications?read=&page=1&pageSize=20` | Sesión (los dos roles) | 200 `{ items, page, pageSize, totalItems, unreadCount }` |
+| `GET /notifications?read=&page=1&pageSize=20` | Sesión (los dos roles) | 200 `{ items, page, pageSize, totalItems, totalPages, hasPreviousPage, hasNextPage, unreadCount }` |
 | `POST /notifications/{id}/read` | Sesión | 204; 404 `notification.not-found` |
 | `GET /notifications/preferences` | Sesión | 200 `{ "emailEnabled": true }` |
 | `PUT /notifications/preferences` | Sesión | 204 |

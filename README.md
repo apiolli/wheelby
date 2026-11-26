@@ -781,7 +781,7 @@ Los **correos de cuenta** (activación, reenvío, recuperación y restablecimien
 
 | Ruta | Sesión | Cuerpo de la petición | Respuesta correcta |
 |---|---|---|---|
-| `GET /notifications?read=&page=1&pageSize=20` | Sí (los dos roles) | — | 200 `{ items, page, pageSize, totalItems, unreadCount }`. Cada item: `id`, `recipientId`, `type`, `title`, `message`, `referenceId`, `isRead`, `readAt`, `createdAt`, `emailSent` |
+| `GET /notifications?read=&page=1&pageSize=20` | Sí (los dos roles) | — | 200 `{ items, page, pageSize, totalItems, totalPages, hasPreviousPage, hasNextPage, unreadCount }`. Cada item: `id`, `recipientId`, `type`, `title`, `message`, `referenceId`, `isRead`, `readAt`, `createdAt`, `emailSent` |
 | `POST /notifications/{id}/read` | Sí | — | 204; 404 `notification.not-found` si no es suya o no existe |
 | `GET /notifications/preferences` | Sí | — | 200 `{ "emailEnabled": true }` |
 | `PUT /notifications/preferences` | Sí | `{ "emailEnabled": false }` | 204 |

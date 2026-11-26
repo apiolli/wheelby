@@ -86,4 +86,29 @@ public sealed class ListMyNotificationsHandlerTests
         Assert.True(page.Items.Single(n => n.Title == "con").EmailSent);
         Assert.False(page.Items.Single(n => n.Title == "sin").EmailSent);
     }
+
+    [Fact]
+    public async Task RF_NOT_04_la_pagina_trae_los_campos_de_paginacion()
+    {
+        // Arrange
+        var db = NotificationsDb.CreaContexto();
+        db.Notifications.AddRange(
+            Nueva(AnaId, T0), Nueva(AnaId, T0.AddMinutes(1)), Nueva(AnaId, T0.AddMinutes(2)),
+            Nueva(AnaId, T0.AddMinutes(3)), Nueva(AnaId, T0.AddMinutes(4)));
+        await db.SaveChangesAsync();
+        var handler = new ListMyNotificationsQueryHandler(new NotificationReadStore(db), new FixedCurrentUser(AnaId));
+
+        // Act
+        var primera = await handler.Handle(new ListMyNotificationsQuery(null, 1, 2), CancellationToken.None);
+        var ultima = await handler.Handle(new ListMyNotificationsQuery(null, 3, 2), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(5, primera.TotalItems);
+        Assert.Equal(3, primera.TotalPages);
+        Assert.False(primera.HasPreviousPage);
+        Assert.True(primera.HasNextPage);
+        Assert.Single(ultima.Items);
+        Assert.True(ultima.HasPreviousPage);
+        Assert.False(ultima.HasNextPage);
+    }
 }
