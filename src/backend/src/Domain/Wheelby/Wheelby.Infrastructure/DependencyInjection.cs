@@ -75,6 +75,7 @@ public static class DependencyInjection
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IVehicleReadStore, VehicleReadStore>();
         services.AddScoped<IReservationReadStore, ReservationReadStore>();
+        services.AddScoped<IVehicleRevenueReportStore, VehicleRevenueReportStore>();
         services.AddScoped<IWheelbyUnitOfWork, WheelbyUnitOfWork>();
     }
 
