@@ -11,7 +11,9 @@ internal sealed class RejectPermissionRequestCommandHandler(
     IPermissionRequestRepository requests,
     IPermissionsUnitOfWork unitOfWork,
     ICurrentUser currentUser,
-    IClock clock) : IRequestHandler<RejectPermissionRequestCommand, Unit>
+    IClock clock,
+    // RF-NOT-02: opcional y al final para que las pruebas previas sigan compilando sin cambios.
+    IPermissionRequestNotifier? notifier = null) : IRequestHandler<RejectPermissionRequestCommand, Unit>
 {
     public async Task<Unit> Handle(
         RejectPermissionRequestCommand request,
@@ -30,6 +32,10 @@ internal sealed class RejectPermissionRequestCommandHandler(
         permissionRequest.Reject(currentUser.Id, clock.UtcNow, request.Reason);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Solo si se guardó: un 400, 403, 404 o 409 sale antes y no notifica (CA-NOT-02.3).
+        if (notifier is not null)
+            await notifier.RequestRejectedAsync(permissionRequest, cancellationToken);
 
         return Unit.Value;
     }

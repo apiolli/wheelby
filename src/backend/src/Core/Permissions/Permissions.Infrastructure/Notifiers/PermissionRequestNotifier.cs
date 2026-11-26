@@ -31,6 +31,26 @@ internal sealed class PermissionRequestNotifier(
             await p.PublishToAdministratorsAsync(message, [request.RequesterId], cancellationToken);
         });
 
+    public Task RequestApprovedAsync(PermissionRequest request, CancellationToken cancellationToken)
+        => SafelyAsync(request, p => p.PublishAsync(
+            new NotificationMessage(
+                NotificationTypes.PermissionRequestApproved,
+                "Tu solicitud de permiso fue aprobada",
+                $"Tu solicitud del permiso {request.PermissionCode} fue aprobada. Ya puedes usarlo.",
+                request.Id),
+            [request.RequesterId],
+            cancellationToken));
+
+    public Task RequestRejectedAsync(PermissionRequest request, CancellationToken cancellationToken)
+        => SafelyAsync(request, p => p.PublishAsync(
+            new NotificationMessage(
+                NotificationTypes.PermissionRequestRejected,
+                "Tu solicitud de permiso fue rechazada",
+                $"Tu solicitud del permiso {request.PermissionCode} fue rechazada.\n\nMotivo: {request.RejectionReason}",
+                request.Id),
+            [request.RequesterId],
+            cancellationToken));
+
     // Efecto secundario: un fallo se registra y nunca llega a la operación del usuario.
     private async Task SafelyAsync(PermissionRequest request, Func<INotificationPublisher, Task> notify)
     {
