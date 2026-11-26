@@ -27,6 +27,9 @@
     <ProjectReference Include="..\Permissions.Domain\Permissions.Domain.csproj" />
     <ProjectReference Include="..\Permissions.Infrastructure\Permissions.Infrastructure.csproj" />
     <ProjectReference Include="..\..\AccessControl\AccessControl.Contracts\AccessControl.Contracts.csproj" />
+    <!-- Prueba de integración del aviso a Administradores (RF-NOT-01 y 02): motor real sobre InMemory. -->
+    <ProjectReference Include="..\..\AccessControl\AccessControl.Infrastructure\AccessControl.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Notifications\Notifications.Infrastructure\Notifications.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
     <ProjectReference Include="..\..\..\Shared\SharedKernel\SharedKernel.csproj" />
   </ItemGroup>

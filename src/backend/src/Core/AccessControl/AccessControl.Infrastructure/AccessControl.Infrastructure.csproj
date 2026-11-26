@@ -20,6 +20,11 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <!-- RD-12: la prueba de integración de notificaciones de Permissions usa el directorio real sobre InMemory. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Permissions.Test" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

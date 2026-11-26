@@ -4,6 +4,8 @@
     <ProjectReference Include="..\Permissions.Application\Permissions.Application.csproj" />
     <ProjectReference Include="..\Permissions.Domain\Permissions.Domain.csproj" />
     <ProjectReference Include="..\Permissions.Contracts\Permissions.Contracts.csproj" />
+    <ProjectReference Include="..\..\AccessControl\AccessControl.Contracts\AccessControl.Contracts.csproj" />
+    <ProjectReference Include="..\..\Notifications\Notifications.Contracts\Notifications.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
   </ItemGroup>

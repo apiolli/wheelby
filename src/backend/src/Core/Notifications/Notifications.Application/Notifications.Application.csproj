@@ -16,6 +16,7 @@
   <!-- RD-12: permite al proyecto de pruebas instanciar los handlers internos. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Notifications.Test" />
+    <InternalsVisibleTo Include="Permissions.Test" />
   </ItemGroup>
 
   <PropertyGroup>
