@@ -2,9 +2,11 @@
 
 Marketplace de alquiler de vehículos entre particulares. Backend en C# (.NET 10), monolito modular con Clean Architecture, CQRS y DDD, sobre PostgreSQL.
 
-Programación III · ITLA · 2026-C-3 · Práctica 4
+Programación III · ITLA · 2026-C-3 · Práctica 5
 
 **Todo el proyecto corre en contenedores**: PostgreSQL, la API y el Worker de correos se levantan con un solo comando, `docker compose up --build`, desde la raíz del repositorio. No hace falta instalar .NET ni PostgreSQL. Para comprobar cada criterio de aceptación, ver [Cómo verificar los criterios](#7-cómo-verificar-los-criterios).
+
+**Práctica 5:** notificaciones con bandeja interna y correo, cola de correos con reintentos y estado fallido, y reportes con agregación. Pasos en las secciones [12. Notificaciones](#12-notificaciones) y [13. Reportes](#13-reportes); diseño y criterios en [docs/notificaciones/README.md](docs/notificaciones/README.md).
 
 ---
 
@@ -23,6 +25,8 @@ Programación III · ITLA · 2026-C-3 · Práctica 4
 9. [Ver los datos en PostgreSQL](#9-ver-los-datos-en-postgresql)
 10. [Problemas frecuentes](#10-problemas-frecuentes)
 11. [Estructura del repositorio](#11-estructura-del-repositorio)
+12. [Notificaciones](#12-notificaciones)
+13. [Reportes](#13-reportes)
 
 ---
 
@@ -48,7 +52,7 @@ Los comandos se muestran para **PowerShell (Windows)** y, donde cambian, para **
 ```bash
 git clone <URL del repositorio>
 cd <carpeta del repositorio>
-git checkout practica-4
+git checkout practica-5
 ```
 
 **Todos los comandos de este documento se ejecutan desde la raíz del repositorio**, donde están `docker-compose.yml`, `Dockerfile` y `.env.example`.
@@ -83,7 +87,7 @@ La primera vez descarga las imágenes y compila (unos minutos). Arrancan tres se
 | ---------- | ------------------------------------------------------------------------ | ---------------- |
 | `postgres` | PostgreSQL 17. Queda `healthy` antes de que arranque la API              | ninguno          |
 | `api`      | La API. Aplica las migraciones de todos los módulos y crea el Administrador | **8080**         |
-| `worker`   | Envía los correos pendientes de la cola cada 10 segundos, sin parar      | ninguno          |
+| `worker`   | Envía los correos pendientes de la cola cada 10 segundos, sin parar, y expira solicitudes de reserva vencidas | ninguno          |
 
 **Solo la API publica un puerto.** Compruébalo en otra terminal con `docker compose ps`.
 
@@ -114,7 +118,7 @@ Los datos viven en dos volúmenes con nombre: `wheelby-pgdata` (la base) y `whee
 Los correos no se envían dentro de la petición: quedan en una cola de la base con estado `Pending` y el servicio `worker` los envía en su siguiente vuelta (cada `Worker__IntervalSeconds`, 10 segundos por defecto). Ya no hace falta ejecutar nada a mano.
 
 - **Vía principal:** con las credenciales SMTP reales en `.env` (sección 2.3), el correo llega en unos segundos. Revisa la carpeta de spam.
-- **Respaldo sin SMTP:** con los valores de ejemplo el envío falla, el correo sigue `Pending` y el Worker lo reintenta. El enlace de activación y el código de recuperación se leen directamente de la cola:
+- **Respaldo sin SMTP:** con los valores de ejemplo el envío falla y el Worker lo reintenta en cada vuelta; **tras 5 intentos fallidos el correo queda `Failed`** (unos 50 segundos) y ya no se reintenta (sección 12.6). Su cuerpo **sigue legible en la cola**, así que el enlace de activación y el código de recuperación se leen directamente de la base, esté `Pending` o `Failed`:
 
   En bash (Git Bash, macOS o Linux):
 
@@ -135,6 +139,7 @@ Los correos no se envían dentro de la petición: quedan en una cola de la base 
   Sal con `\q`. Si cambiaste `POSTGRES_USER` o `POSTGRES_DB` en `.env`, usa esos valores en `-U` y `-d`.
 
 - Para ver lo que hace el Worker: `docker compose logs -f worker`. Cada vez que envía algo escribe `Pending emails processed. Sent: N. Failed: M.`
+- Un correo de recuperación **reciente** sigue sirviendo aunque esté `Failed`: el código vale 30 minutos desde que se pidió.
 
 ---
 
@@ -477,10 +482,12 @@ GET /vehicles/available?from=2030-01-10T10:00:00Z&to=2030-01-12T10:00:00Z&curren
 - **Módulo de negocio Wheelby** (RF-NEG-01 a 06, RD-03, RD-07, RD-08, RD-09): pasos exactos, cuerpos de petición y consultas SQL para cada criterio en [docs/wheelby/README.md](docs/wheelby/README.md).
 - **Manejador de documentos** (RF-DOC-01 a 05): sección 5 de este documento.
 - **API externa** (RD-07, RD-08, RD-10): sección 6 de este documento.
+- **Notificaciones y cola de correos** (RF-NOT-01 a 13): sección 12 de este documento; cada criterio `CA-NOT-*` con su prueba en [docs/notificaciones/README.md](docs/notificaciones/README.md).
+- **Reportes** (RF-REP-01 a 05): sección 13 de este documento.
 
 Atajos útiles:
 
-- **Simular SMTP caído (RF-NOT-08):** pon `Smtp__Port=9999` en `.env` y recrea el Worker con `docker compose up -d worker`. Registra un usuario: la API responde 201 y el correo queda `Pending`; `docker compose logs worker` muestra `Failed: 1` en cada vuelta. Restaura el puerto y repite `docker compose up -d worker`: el correo sale (`Sent: 1`) y no se duplica.
+- **Simular SMTP caído (RF-NOT-08 y 10):** pon `Smtp__Port=9999` en `.env` y recrea el Worker con `docker compose up -d worker`. Registra un usuario: la API responde 201 y el correo queda `Pending` con `Attempts = 0`; `docker compose logs worker` muestra `Failed: 1` en cada vuelta y, al quinto intento, el correo queda `Failed`. Restaura el puerto y repite `docker compose up -d worker`: los correos nuevos salen (`Sent: 1`) y no se duplican. Paso a paso en la sección 12.6.
 - **Peticiones construidas a mano (RF-CA-06),** fuera de Scalar:
 
   ```powershell
@@ -512,15 +519,30 @@ docker build --target test .
 
 Compila la solución dentro de la imagen del SDK y ejecuta `dotnet test`. Para ver el resultado de cada proyecto, agrega `--progress=plain`; para repetirlas sin caché, `--no-cache`. Si tienes el SDK de .NET 10, el comando equivalente es `cd src/backend` y `dotnet test`.
 
-Son **234 pruebas** en tres proyectos (una prueba con varios casos cuenta una vez por caso):
+Son **386 pruebas** en cuatro proyectos (una prueba con varios casos cuenta una vez por caso). Antes de la Práctica 5 eran 278:
 
 | Proyecto | Carpeta | Pruebas | Resultado esperado |
 |---|---|---|---|
 | `Documents.Test` | `src/backend/src/Core/Documents/Documents.Test/` | 44 | `Failed: 0, Passed: 44` |
-| `Permissions.Test` | `src/backend/src/Core/Permissions/Permissions.Test/` | 71 | `Failed: 0, Passed: 71` |
-| `Wheelby.Test` | `src/backend/src/Domain/Wheelby/Wheelby.Test/` | 119 | `Failed: 0, Passed: 119` |
+| `Notifications.Test` | `src/backend/src/Core/Notifications/Notifications.Test/` | 60 | `Failed: 0, Passed: 60` |
+| `Permissions.Test` | `src/backend/src/Core/Permissions/Permissions.Test/` | 93 | `Failed: 0, Passed: 93` |
+| `Wheelby.Test` | `src/backend/src/Domain/Wheelby/Wheelby.Test/` | 189 | `Failed: 0, Passed: 189` |
 
-Todas usan fechas y reloj fijos, siguen Arrange/Act/Assert, verifican un solo comportamiento, son independientes entre sí (cada una crea sus dobles y, con EF InMemory, una base con nombre único) y llevan el ID del requisito al inicio del nombre (`RF_DOC_0X_...`, `RF_GP_0X_...`, `RF_NEG_0X_...`, `RD_XX_...`).
+Todas usan fechas y reloj fijos, siguen Arrange/Act/Assert, verifican un solo comportamiento, son independientes entre sí (cada una crea sus dobles y, con EF InMemory, una base con nombre único) y llevan el ID del requisito al inicio del nombre (`RF_DOC_0X_...`, `RF_GP_0X_...`, `RF_NEG_0X_...`, `RF_NOT_XX_...`, `RF_REP_0X_...`, `RD_XX_...`).
+
+### Notifications.Test y pruebas de la Práctica 5
+
+Abreviaturas: **N** = `Notifications.Test`, **P** = `Permissions.Test`, **W** = `Wheelby.Test`. La lista completa, criterio por criterio, está en [docs/notificaciones/README.md](docs/notificaciones/README.md#6-verificación-de-cada-criterio).
+
+| Requisito | Lo que se verifica |
+|---|---|
+| RF-NOT-01 y 02 (P) | Con el motor real (publicador, `PublishNotification` y el directorio de usuarios de AccessControl) sobre EF InMemory: crear avisa a cada Administrador activo y a nadie más (ni al Estándar, ni al deshabilitado, ni al no activado, ni al solicitante); aprobar y rechazar avisan solo al solicitante, con el motivo; una resolución rechazada (400 o 409) no notifica; si el motor falla, la solicitud se crea igual |
+| RF-NOT-03 (W) | Una prueba por fila de la tabla de transiciones; quien actúa no recibe el aviso; `/reject` marca el evento como rechazo y `/cancel` no; el handler ya no depende de `IEmailQueue` |
+| RF-NOT-04 a 07 (N) | Bandeja propia, filtros `read` y `unreadCount`; marcar como leída idempotente y 404 para la de otro; preferencia por defecto, cambio y efecto sobre el correo; los correos de cuenta ignoran la preferencia; notificación y correo enlazados por `EmailId` |
+| RF-NOT-08 a 12 (N) | La operación no llama al servidor de correo; reintentos hasta 5 y `Failed`; un `Failed` no se reintenta; un fallo no corta la pasada; dos pasadas no duplican; cada correo en su transacción; la cola del Administrador no expone el cuerpo; rutas con su política |
+| RF-REP-01 a 05 (P y W) | Agrupación por mes y estado, y por vehículo; varios registros dan una sola fila; el Estándar solo ve lo suyo y el Administrador todo; dos rangos dan resultados distintos; `to` es exclusivo; rango inválido da 400 por campo; excluye `Pending` y `Cancelled` y usa el monto congelado |
+
+**Pruebas previas adaptadas** (única excepción permitida): en `Wheelby.Test/Application/Priority3Tests.cs`, `El_handler_encola_el_correo_del_anfitrion_al_solicitar` y `Si_la_cola_falla_el_handler_no_propaga_la_excepcion` comprobaban que el aviso de reserva usaba `IEmailQueue`; ahora comprueban `INotificationPublisher`. Ninguna otra prueba previa cambió.
 
 ### Documents.Test (Práctica 4)
 
@@ -651,9 +673,10 @@ Todas se definen en **`.env`** (copia de `.env.example`). Ningún valor real est
 | `Smtp__Host`, `Smtp__Port`, `Smtp__User`, `Smtp__Password`, `Smtp__From` | Para que lleguen los correos | Servidor de correo saliente (587, STARTTLS). Las credenciales reales van en el comentario de Moodle | Worker |
 | `Worker__IntervalSeconds` | No (10, mínimo 1) | Segundos entre vueltas del Worker | Worker |
 | `Worker__ReservationExpiryIntervalSeconds` | No (300, mínimo 10) | Segundos entre pasadas que expiran solicitudes `Pending` vencidas | Worker |
+| `Notifications__MaxEmailAttempts` | No (5, mínimo 1) | Intentos de envío de cada correo antes de dejarlo `Failed` (RF-NOT-10). Con 0 o menos, la API y el Worker no arrancan y el log dice por qué | API y Worker |
 | `Documents__MaxFileSizeBytes` | No (10485760 = 10 MB) | Tamaño máximo de cada documento | API |
 | `Documents__StoragePath` | No (la imagen usa `/app/data/documents`) | Carpeta de los documentos, dentro del volumen `wheelby-documents` | API |
-| `ExchangeRate__ApiKey` | No | Clave de ExchangeRate-API. Sin ella, solo la búsqueda con `currency` responde 503 | API |
+| `ExchangeRate__ApiKey` | No | Clave de ExchangeRate-API. Sin ella, la búsqueda con `currency` responde 200 en DOP sin conversión (sección 6.1) | API |
 | `ExchangeRate__BaseUrl` | No (`https://v6.exchangerate-api.com/v6/`) | Dirección del proveedor | API |
 | `ExchangeRate__TimeoutSeconds` | No (5) | Tiempo máximo de espera de la API externa | API |
 | `ExchangeRate__CacheMinutes` | No (60) | Minutos que se guarda cada tasa en memoria | API |
@@ -680,6 +703,8 @@ Cada módulo tiene su propio esquema. Los nombres de tabla llevan **comillas dob
 SELECT * FROM access_control."Users";
 SELECT * FROM access_control."Sessions";
 SELECT * FROM notifications."QueuedEmails";
+SELECT * FROM notifications."Notifications";
+SELECT * FROM notifications."NotificationPreferences";
 SELECT * FROM permissions."PermissionRequests";
 SELECT * FROM permissions."PermissionGrants";
 SELECT * FROM wheelby."Vehicles";
@@ -722,6 +747,9 @@ Sal con `\q`.
 │  ├─ wheelby/README.md              Cómo probar el módulo de negocio Wheelby
 │  ├─ control-acceso/README.md       Cómo verificar cada criterio de Control de acceso
 │  ├─ gestion-permisos/README.md     Cómo verificar cada criterio de Gestión de permisos
+│  ├─ notificaciones/README.md       Motor de notificaciones, cola de correos y cada criterio CA-NOT-*
+│  ├─ criterios-notificaciones-reportes.md  Criterios de aceptación de la Práctica 5
+│  ├─ practica-5/tarea-agente.md     Diseño y orden de trabajo de la Práctica 5
 │  └─ bitacora-asignacion-2.md       Bitácora de la sesión con el agente
 └─ src/
    └─ backend/
@@ -729,14 +757,215 @@ Sal con `\q`.
       └─ src/
          ├─ Host/
          │  ├─ Host.WebAPI/          API (Minimal APIs, Scalar)
-         │  └─ Host.Worker/          Envío continuo de los correos pendientes
+         │  └─ Host.Worker/          Envío de los correos pendientes (continuo o --once) y expiración de reservas
          ├─ Shared/                  SharedKernel y Shared.Application
          ├─ Core/
          │  ├─ AccessControl/        Control de acceso
          │  ├─ Documents/            Manejador de documentos (incluye Documents.Test)
-         │  ├─ Notifications/        Cola de correos
+         │  ├─ Notifications/        Bandeja de notificaciones, preferencias y cola de correos (incluye Notifications.Test)
          │  └─ Permissions/          Gestión de permisos (incluye Permissions.Test)
          └─ Domain/
             └─ Wheelby/              Módulo de negocio: vehículos, reservas y su máquina de estados
                └─ Wheelby.Test/      Pruebas del negocio, de rutas y de integración con permisos
 ```
+
+---
+
+## 12. Notificaciones
+
+Cada aviso llega por **dos canales**: la **bandeja interna** del destinatario (`GET /notifications`) y un **correo** encolado con el mismo título como asunto, salvo que el destinatario haya desactivado el correo. La notificación y su correo se guardan en la misma transacción. Diseño, tabla de tipos y cada criterio `CA-NOT-*` con su prueba en [docs/notificaciones/README.md](docs/notificaciones/README.md).
+
+Los **correos de cuenta** (activación, reenvío, recuperación y restablecimiento forzado) **no son notificaciones**: entran directo a la cola, no aparecen en la bandeja y no respetan la preferencia, para que desactivar el correo nunca impida activar una cuenta ni recuperar la contraseña.
+
+### 12.1 Rutas
+
+| Ruta | Sesión | Cuerpo de la petición | Respuesta correcta |
+|---|---|---|---|
+| `GET /notifications?read=&page=1&pageSize=20` | Sí (los dos roles) | — | 200 `{ items, page, pageSize, totalItems, unreadCount }`. Cada item: `id`, `recipientId`, `type`, `title`, `message`, `referenceId`, `isRead`, `readAt`, `createdAt`, `emailSent` |
+| `POST /notifications/{id}/read` | Sí | — | 204; 404 `notification.not-found` si no es suya o no existe |
+| `GET /notifications/preferences` | Sí | — | 200 `{ "emailEnabled": true }` |
+| `PUT /notifications/preferences` | Sí | `{ "emailEnabled": false }` | 204 |
+| `GET /admin/notifications/emails?status=&page=1&pageSize=20` | `Administrator` | — | 200 paginada, **sin el cuerpo** del correo. `status` = `Pending`, `Sent` o `Failed` |
+| `GET /admin/notifications/emails/{id}` | `Administrator` | — | 200; 404 si no existe |
+
+`read=false` filtra las no leídas y `read=true` las leídas; sin `read`, todas. Ordenadas de la más nueva a la más vieja. Ninguna ruta recibe un `userId`: cada usuario ve y cambia solo lo suyo. Sin sesión, o con el token de una sesión cerrada con `POST /auth/logout`, **401**.
+
+| Tipo | Cuándo | Destinatario |
+|---|---|---|
+| `permission.request-created` | Se crea una solicitud de permiso | Cada Administrador activo, menos el solicitante |
+| `permission.request-approved` | Se aprueba | Solicitante |
+| `permission.request-rejected` | Se rechaza (lleva el motivo) | Solicitante |
+| `reservation.requested` | **Se solicita una reserva** (el evento del negocio) | Anfitrión |
+| `reservation.confirmed`, `reservation.rejected`, `reservation.started`, `reservation.completed` | El anfitrión confirma, rechaza con `/reject`, inicia o completa | Inquilino |
+| `reservation.cancelled` | Cancela el inquilino o el anfitrión (con `/cancel`) | La otra parte |
+| `reservation.expired` | El Worker expira una solicitud vencida | Anfitrión e inquilino |
+
+### 12.2 Gestión de permisos: crear, aprobar y rechazar
+
+Hacen falta: el **token de Admin A** (`Admin__Email` y `Admin__Password` del `.env`), el **token de Admin B** (un Estándar registrado y activado al que Admin A le dio el rol con `PATCH /admin/users/{id}/role` y `{ "role": "Administrator" }`; inicia sesión **después** del cambio) y el **token de Ana** (una Estándar activa).
+
+1. Con el **token de Ana**, `POST /permissions/requests`:
+
+   ```json
+   { "permissionCode": "core.demo-action" }
+   ```
+
+   → **201** con el `id` (`<id 1>`).
+2. Con el **token de Admin A**, `GET /notifications?read=false` → **200**: hay **una** notificación nueva de tipo `permission.request-created`, con `referenceId` = `<id 1>`, que menciona `core.demo-action` y el nombre de Ana. Lo mismo con el **token de Admin B**. Con el **token de Ana**, `GET /notifications` no la muestra.
+3. Con el **token de Admin A**, `POST /admin/permissions/requests/<id 1>/approve` → **204**. Con el **token de Ana**, `GET /notifications?read=false` muestra **una** de tipo `permission.request-approved` que dice que fue **aprobada** y nombra el permiso. Repetir la aprobación → **409** y no aparece ninguna notificación nueva.
+4. Con el **token de Ana**, `POST /permissions/requests` con `{ "permissionCode": "wheelby.publish-vehicle" }` → **201** (`<id 2>`). Con el **token de Admin A**, `POST /admin/permissions/requests/<id 2>/reject`:
+
+   ```json
+   { "reason": "No corresponde al perfil del usuario" }
+   ```
+
+   → **204**. Con el **token de Ana**, `GET /notifications` muestra **una** de tipo `permission.request-rejected` con el motivo exacto en `message`. El correo a Ana también lo trae:
+
+   ```sql
+   SELECT "Subject", "Body" FROM notifications."QueuedEmails" WHERE "To" = '<correo de Ana>' ORDER BY "CreatedAt" DESC LIMIT 1;
+   ```
+
+Comprobación en la base (cómo abrir `psql`: sección 3):
+
+```sql
+SELECT "RecipientId", "Type", "Title", "ReadAt", "EmailId", "CreatedAt"
+FROM notifications."Notifications" ORDER BY "CreatedAt" DESC;
+
+-- Una por Administrador activo: un Administrador deshabilitado no la recibe
+SELECT count(*) FROM notifications."Notifications" WHERE "Type" = 'permission.request-created' AND "ReferenceId" = '<id 1>';
+```
+
+### 12.3 El evento del negocio: solicitar una reserva notifica al anfitrión
+
+Con el **token de anfitrión** (Ana, con el permiso `wheelby.publish-vehicle` aprobado y un vehículo publicado, pasos 1 y 2 del frente 6) y el **token de inquilino** (Beto):
+
+1. Con el **token de inquilino**, `POST /reservations`:
+
+   ```json
+   { "vehicleId": "<vehículo>", "start": "2030-01-10T10:00:00Z", "end": "2030-01-12T10:00:00Z" }
+   ```
+
+   → **201** (`<reserva>`).
+2. Con el **token de anfitrión**, `GET /notifications?read=false` → **una** notificación de tipo `reservation.requested`, con `referenceId` = `<reserva>`, cuyo `message` trae la marca, el modelo, las fechas (`10/01/2030` al `12/01/2030`) y el nombre del inquilino. `emailSent` es `true`: su correo está en la cola. El inquilino no recibe aviso por su propia solicitud.
+3. Con el **token de anfitrión**, `POST /reservations/<reserva>/confirm` → **204**. Con el **token de inquilino**, `GET /notifications` muestra `reservation.confirmed`. Las demás transiciones (rechazar, cancelar, iniciar, completar, expirar) avisan según la tabla de la sección 12.1.
+
+Comprobación de que la bandeja y el correo van juntos (RF-NOT-06):
+
+```sql
+SELECT n."Title", q."Subject", q."To"
+FROM notifications."Notifications" n
+JOIN notifications."QueuedEmails" q ON q."Id" = n."EmailId"
+ORDER BY n."CreatedAt" DESC;
+```
+
+### 12.4 Consultar y marcar como leída
+
+1. Con el **token de anfitrión**, `GET /notifications` → cada elemento trae `isRead` y `readAt` (`null` si no está leída), y la respuesta trae `unreadCount`. Todos tienen `recipientId` igual al `id` de `GET /auth/me`.
+2. `POST /notifications/<id de una suya>/read` → **204**. La notificación queda con `isRead = true` y `readAt` con fecha, y `unreadCount` baja en 1. Repetir la llamada → **204** y `readAt` no cambia.
+3. `GET /notifications?read=true` y `GET /notifications?read=false` devuelven solo las leídas y solo las no leídas.
+4. **Marcar la de otro:** toma el `id` de una notificación de Admin A (con su token, `GET /notifications`) y, con el **token de anfitrión**, `POST /notifications/<id de Admin A>/read` → **404** con `code` `notification.not-found`. Con el **token de Admin A**, `GET /notifications?read=false` todavía la muestra sin leer. Un `id` que no existe da la misma respuesta.
+
+### 12.5 Desactivar el correo
+
+1. Con el **token de anfitrión**, `GET /notifications/preferences` → **200** `{ "emailEnabled": true }`.
+2. `PUT /notifications/preferences` con `{ "emailEnabled": false }` → **204**. `GET /notifications/preferences` → `{ "emailEnabled": false }`.
+3. Cuenta los correos del anfitrión:
+
+   ```sql
+   SELECT count(*) FROM notifications."QueuedEmails" WHERE "To" = '<correo del anfitrión>';
+   ```
+
+4. Con el **token de inquilino**, solicita otra reserva del mismo vehículo (por ejemplo del `2030-05-10T10:00:00Z` al `2030-05-11T10:00:00Z`) → **201**.
+5. Con el **token de anfitrión**, `GET /notifications` muestra la nueva `reservation.requested` con `emailSent: false`, y la consulta del paso 3 da **el mismo número**: no se encoló correo.
+6. Los correos de cuenta no dependen de la preferencia: `POST /auth/forgot-password` con el correo del anfitrión → la consulta del paso 3 suma **uno**.
+7. Vuelve a activarlo con `PUT /notifications/preferences` y `{ "emailEnabled": true }`.
+
+### 12.6 El procesador de la cola: ejecución manual y fallos de envío
+
+El servicio `worker` procesa la cola **solo, cada 10 segundos** (`Worker__IntervalSeconds`). Para ejecutar **una sola pasada** a mano y salir:
+
+```bash
+docker compose run --rm worker --once
+```
+
+Escribe `Pending emails processed. Sent: N. Failed: M.` (también con 0 y 0), no expira reservas, no se queda corriendo y termina con código 0 (`echo $?` en bash, `$LASTEXITCODE` en PowerShell).
+
+**Máximo de intentos: 5**, configurable con `Notifications__MaxEmailAttempts` (mínimo 1). Cada fallo suma un intento y guarda `LastAttemptAt` y `LastError` (tipo y mensaje del error, máximo 500 caracteres, nunca las credenciales SMTP); al quinto, el correo queda `Failed` con `FailedAt` y no se vuelve a intentar. No se borra. No hay espera entre reintentos: con el intervalo de 10 s, un correo imposible queda `Failed` en unos 50 s.
+
+**Cómo provocar un fallo de envío:**
+
+- Con los **valores de ejemplo** de `.env.example`, el servidor `smtp.example.com` no existe: todo envío falla.
+- Con **credenciales reales**, pon `Smtp__Port=9999` en `.env` y recrea el Worker con `docker compose up -d worker`.
+
+Para contar los intentos uno por uno, detén primero el Worker continuo con `docker compose stop worker`, y luego:
+
+1. Provoca un correo, por ejemplo `POST /auth/forgot-password` con el correo de un usuario. Queda `Pending` con `Attempts = 0`: la API respondió sin esperar al servidor de correo.
+2. Ejecuta `docker compose run --rm worker --once` → `Sent: 0. Failed: 1.`. En la base el correo sigue `Pending`, con `Attempts = 1`, `LastAttemptAt` y `LastError`:
+
+   ```sql
+   SELECT "Id", "To", "Subject", "Status", "Attempts", "LastAttemptAt", "SentAt", "FailedAt", "LastError"
+   FROM notifications."QueuedEmails" ORDER BY "CreatedAt" DESC;
+   ```
+
+3. Ejecútalo 4 veces más: el correo queda `Failed` con `Attempts = 5` y `FailedAt`. Una sexta pasada no lo intenta: `Attempts` sigue en 5.
+4. Con el **token de Admin A**, `GET /admin/notifications/emails?status=Failed&page=1&pageSize=20` → **200** con `id`, `to`, `subject`, `status`, `attempts`, `createdAt`, `lastAttemptAt`, `sentAt`, `failedAt` y `lastError` de cada correo, **sin `body`**. `GET /admin/notifications/emails/<id>` devuelve uno.
+5. Con el **token de un Estándar**, las dos rutas → **403**; sin token → **401**.
+6. Si cambiaste el puerto, restáuralo en `.env` y repite `docker compose up -d worker`. Si lo detuviste, `docker compose start worker`.
+
+**Un correo enviado no se vuelve a enviar:** con un SMTP que funcione, ejecuta `docker compose run --rm worker --once` dos veces seguidas. La primera envía (`Sent`, `SentAt` con fecha, `Attempts = 1`) y la segunda dice `Sent: 0` y no cambia nada. Si el Worker continuo y un `--once` corren a la vez, cada correo lo toma uno solo: la selección usa `FOR UPDATE SKIP LOCKED` (detalle en [docs/notificaciones/README.md](docs/notificaciones/README.md#4-el-procesador-de-la-cola-y-cómo-se-evita-la-duplicación)).
+
+### 12.7 Limitaciones declaradas
+
+- **No es outbox.** Notificar es un efecto secundario posterior al guardado de la operación: si el motor falla, se registra en el log y la operación no se revierte ni cambia su respuesta. Si el proceso cae entre los dos guardados, ese aviso se pierde.
+- **Posible duplicado.** Si el proceso cae justo después de que el servidor SMTP aceptó un correo y antes de guardar `Sent`, ese correo puede salir dos veces. Cada correo va en su propia transacción, así que el caso afecta como mucho a un correo.
+
+---
+
+## 13. Reportes
+
+Dos reportes con **agregación en PostgreSQL** (`GROUP BY` con `COUNT` y `SUM` traducidos por EF Core): ninguno carga los registros a memoria para resumirlos. Los dos exigen sesión (**401** sin ella), aceptan los dos roles y piden `from` y `to` en formato `yyyy-MM-dd`, en UTC, con `from` inclusivo y `to` exclusivo: `[from, to)`. Si falta alguno, no tiene ese formato o `from >= to` → **400** `problem+json` con el error por campo. No existe ningún parámetro para pedir los datos de otro usuario.
+
+| Ruta | Módulo | Qué responde |
+|---|---|---|
+| `GET /reports/permission-requests?from=&to=` | Gestión de permisos (Core) | `{ from, to, scope, total, rows: [{ period, status, count }] }`: solicitudes por mes UTC (`yyyy-MM`) y estado, solo combinaciones con `count > 0`, ordenadas por `period` y `status` |
+| `GET /reports/vehicle-revenue?from=&to=` | Wheelby (negocio) | `{ from, to, scope, currency: "DOP", totals, rows }`: una fila por vehículo con `vehicleId`, `brand`, `model`, `plate`, `reservations`, `days`, `totalAmount` y `averageAmount` |
+
+`scope` es `"all"` para el Administrador y `"own"` para el Estándar: en el de permisos cuenta solo sus solicitudes, y en el de ingresos solo sus vehículos.
+
+### 13.1 Solicitudes de permiso por mes y estado
+
+Con los datos de la sección 12.2:
+
+1. Con el **token de Admin A**, `GET /reports/permission-requests?from=2026-01-01&to=2027-01-01` → **200** con `scope = "all"`. Cada fila es un grupo, no una solicitud (no trae `id`, `requesterId` ni `permissionCode`), y `total` es la suma de los `count`. Compáralo con:
+
+   ```sql
+   SELECT to_char("CreatedAt",'YYYY-MM'), "Status", count(*) FROM permissions."PermissionRequests"
+   WHERE "CreatedAt" >= '2026-01-01' AND "CreatedAt" < '2027-01-01' GROUP BY 1,2 ORDER BY 1,2;
+   ```
+
+2. Con el **token de Ana**, la misma ruta → `scope = "own"` y solo sus solicitudes. El `total` de Admin A es mayor o igual que la suma de los de Ana y Beto.
+3. **Dos rangos distintos:** `from=2026-01-01&to=2027-01-01` incluye las solicitudes de hoy; un rango del mes anterior al de hoy (por ejemplo `from=2026-10-01&to=2026-11-01` si las creaste en noviembre de 2026) no las incluye: los resultados son distintos.
+4. `GET /reports/permission-requests?from=2026-02-01&to=2026-01-01` → **400** con el error en `to`; sin `from` → **400** con el error en `from`.
+
+### 13.2 Ingresos por vehículo
+
+**Pregunta que responde:** *¿cuánto generó cada vehículo y cuántos días estuvo alquilado en un período?* Le sirve al anfitrión para saber qué vehículo le rinde más, y al Administrador para ver el movimiento de toda la plataforma.
+
+Solo cuentan las reservas `Confirmed`, `InProgress` o `Completed` cuya `StartDate` está en el rango; `Pending` y `Cancelled` no generan ingreso. Los montos son los **congelados en la reserva**, no el precio actual del vehículo. Las filas van de mayor a menor `totalAmount`; `averageAmount = totalAmount / reservations`, redondeado a 2 decimales, y `totals` suma `reservations`, `days` y `totalAmount`.
+
+Con los datos del frente 6 y de la sección 12.3 (vehículo de 2500 DOP por día):
+
+1. Con el **token de anfitrión**, confirma una segunda reserva en otro mes: el inquilino hace `POST /reservations` con `{ "vehicleId": "<vehículo>", "start": "2030-02-10T10:00:00Z", "end": "2030-02-13T10:00:00Z" }` y el anfitrión `POST /reservations/<reserva 2>/confirm` → **204**.
+2. Con el **token de anfitrión**, `GET /reports/vehicle-revenue?from=2030-01-01&to=2030-02-01` → **200**, `scope = "own"`: una fila para el vehículo con las reservas de enero que estén `Confirmed`, `InProgress` o `Completed` (la del frente 6, si no la iniciaste: `reservations = 1`, `days = 2`, `totalAmount = 5000`).
+3. `GET /reports/vehicle-revenue?from=2030-02-01&to=2030-03-01` → la reserva de febrero (`reservations = 1`, `days = 3`, `totalAmount = 7500`): **dos rangos, dos resultados distintos**. Una reserva con `StartDate` exactamente igual a `to` no se incluye.
+4. Con el **token de inquilino** (no tiene vehículos), `GET /reports/vehicle-revenue?from=2030-01-01&to=2031-01-01` → **200** con `rows` vacío y totales en 0.
+5. Con el **token de Admin A**, la misma ruta → `scope = "all"` con los vehículos de todos los anfitriones. El Administrador puede consultarlo aunque reciba 403 en `/vehicles` y `/reservations`.
+6. Compáralo con:
+
+   ```sql
+   SELECT "VehicleId", count(*), sum("Days"), sum("TotalAmount") FROM wheelby."Reservations"
+   WHERE "Status" IN ('Confirmed','InProgress','Completed') AND "StartDate" >= '2030-01-01' AND "StartDate" < '2031-01-01'
+   GROUP BY 1;
+   ```
+
+Si en el frente 6 moviste las fechas de la reserva a hoy, esa reserva cae en el mes actual: usa ese mes como rango para verla.
