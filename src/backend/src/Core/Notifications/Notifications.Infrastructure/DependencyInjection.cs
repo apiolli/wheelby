@@ -31,6 +31,7 @@ public static class DependencyInjection
                 npgsql.MigrationsHistoryTable("__EFMigrationsHistory", NotificationsDbContext.Schema)));
 
         services.AddScoped<IQueuedEmailRepository, QueuedEmailRepository>();
+        services.AddScoped<IQueuedEmailReadStore, QueuedEmailReadStore>();
 
         // RF-NOT-10: Notifications__MaxEmailAttempts, 5 por defecto y mínimo 1.
         services.AddOptions<NotificationOptions>()
