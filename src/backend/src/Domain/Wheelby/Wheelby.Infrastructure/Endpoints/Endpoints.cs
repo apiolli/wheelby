@@ -2,6 +2,7 @@ using AccessControl.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Wheelby.Application.DTOs;
 using Wheelby.Application.Features.AddVehiclePhoto;
@@ -31,6 +32,7 @@ using Wheelby.Application.Features.RequestReservation;
 using Wheelby.Application.Features.SearchAvailableVehicles;
 using Wheelby.Application.Features.StartRental;
 using Wheelby.Application.Features.PublishVehicle;
+using Wheelby.Application.Features.VehicleRevenueReport;
 using Wheelby.Domain.Reservations;
 using Wheelby.Domain.Vehicles;
 
@@ -43,7 +45,24 @@ public static class WheelbyEndpoints
     {
         MapMemberEndpoints(app);
         MapAdminEndpoints(app);
+        MapReportEndpoints(app);
         return app;
+    }
+
+    // RF-REP-02: los dos roles entran (el Administrador también, aunque no use /vehicles).
+    // El handler limita al Estándar a sus vehículos (RF-REP-04).
+    private static void MapReportEndpoints(IEndpointRouteBuilder app)
+    {
+        var reports = app.MapGroup("/reports")
+            .WithTags("Reports")
+            .RequireAuthorization();
+
+        reports.MapGet("/vehicle-revenue", async (
+            string? from,
+            string? to,
+            [FromServices] ISender sender,
+            CancellationToken ct)
+            => Results.Ok(await sender.Send(new VehicleRevenueReportQuery(from, to), ct)));
     }
 
     private static void MapMemberEndpoints(IEndpointRouteBuilder app)
