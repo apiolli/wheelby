@@ -123,6 +123,70 @@ public sealed class SendPendingEmailsHandlerTests
     }
 
     [Fact]
+    public async Task RF_NOT_12_dos_pasadas_no_duplican_el_envio()
+    {
+        // Arrange
+        var email = Emails.Pendiente("ana@wheelby.dev", Creado);
+        var repository = new FakeQueuedEmailRepository(email);
+        var sender = new FakeEmailSender();
+        var handler = Handler(repository, sender);
+        var primera = await handler.Handle(new SendPendingEmailsCommand(), CancellationToken.None);
+
+        // Act
+        var segunda = await handler.Handle(new SendPendingEmailsCommand(), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(new SendPendingEmailsResult(1, 0), primera);
+        Assert.Equal(new SendPendingEmailsResult(0, 0), segunda);
+        Assert.Single(sender.Sent);
+        Assert.Equal(EmailStatus.Sent, email.Status);
+        Assert.Equal(1, email.Attempts);
+        Assert.Equal(Pasada, email.SentAt);
+    }
+
+    [Fact]
+    public async Task RF_NOT_12_solo_toma_correos_pendientes()
+    {
+        // Arrange
+        var enviado = Emails.Pendiente("enviado@wheelby.dev", Creado);
+        enviado.MarkAsSent(Creado);
+        var fallido = Emails.Pendiente("fallido@wheelby.dev", Creado);
+        fallido.RegisterFailure("error", Creado, 1);
+        var pendiente = Emails.Pendiente("pendiente@wheelby.dev", Creado);
+        var repository = new FakeQueuedEmailRepository(enviado, fallido, pendiente);
+        var sender = new FakeEmailSender();
+        var handler = Handler(repository, sender);
+
+        // Act
+        var result = await handler.Handle(new SendPendingEmailsCommand(), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(new SendPendingEmailsResult(1, 0), result);
+        Assert.Equal("pendiente@wheelby.dev", Assert.Single(sender.Sent).To);
+    }
+
+    [Fact]
+    public async Task RF_NOT_12_cada_correo_se_confirma_en_su_propia_transaccion()
+    {
+        // Arrange
+        var repository = new FakeQueuedEmailRepository(
+            Emails.Pendiente("ana@wheelby.dev", Creado),
+            Emails.Pendiente("beto@wheelby.dev", Creado.AddSeconds(1)),
+            Emails.Pendiente("carla@wheelby.dev", Creado.AddSeconds(2)));
+        var sender = new FakeEmailSender();
+        sender.FailingAddresses.Add("beto@wheelby.dev");
+        var handler = Handler(repository, sender);
+
+        // Act
+        await handler.Handle(new SendPendingEmailsCommand(), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(3, repository.CommitCount);
+        Assert.Equal(3, repository.SaveCount);
+        Assert.Equal(3, sender.Calls);
+    }
+
+    [Fact]
     public void RF_NOT_10_describe_usa_tipo_y_mensaje_recortados()
     {
         // Arrange
